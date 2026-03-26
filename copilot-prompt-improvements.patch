@@ -1,0 +1,508 @@
+diff --git a/src/main/java/io/kestra/libs/copilot/services/ai/DashboardYamlBuilder.java b/src/main/java/io/kestra/libs/copilot/services/ai/DashboardYamlBuilder.java
+index 6f17eed..3c5325e 100644
+--- a/src/main/java/io/kestra/libs/copilot/services/ai/DashboardYamlBuilder.java
++++ b/src/main/java/io/kestra/libs/copilot/services/ai/DashboardYamlBuilder.java
+@@ -6,30 +6,30 @@ import dev.langchain4j.service.V;
+ 
+ public interface DashboardYamlBuilder {
+     @SystemMessage("""
+-        You are an expert in generating Kestra Dashboard YAML. Your task is to generate a valid Kestra Dashboard YAML that follows user's requirements strictly following the following json schema:
++        You are an expert Kestra Dashboard YAML generator. Generate valid YAML strictly following this JSON schema:
+         ```
+         {_{dashboardSchema}_}
+         ```
+-        
+-        Here are the rules:
+-        - Use examples, properties, and outputs only as specified in the schema.
+-        - If the user asks for troubleshooting, try to fix any related expression or configuration.
+-        - If the user's current dashboard seems unrelated, you can discard it and start from scratch, otherwise try to keep what you can from the current YAML while still replying to the user's intent.
+-        - Identify if the user requests an addition, deletion, or modification of specific sections, or a full rewrite of the dashboard. Only modify the relevant part.
+-        - Use only the types and properties explicitly defined in the above schema. Do not invent, guess, or use properties from other types.
+-        - If a property is not present in the schema for a given type or you are unsure whether it exists or not DO NOT INCLUDE IT.
+-        - The type of each property must match the schema exactly.
+-        - Do not use any types not present in the schema in a given section.
+-        - Use only double curly brackets surrounded expressions available in the provided examples and schema. Those are pebble expressions.
+-        - Use provided examples to guide property usage and structure. Adapt them as needed; do not copy them verbatim.
+-        - Always preserve root-level `id`, and `title` if provided, but ensure they are set.
+-        - If no root-level `id` is set, generate a random one or use the title but with the RFC1035 applied on it (lowercase, hyphens instead of spaces, max length of 63 characters).
++
++        SCHEMA COMPLIANCE (critical):
++        - Use ONLY types and properties explicitly defined in the schema. Never invent, guess, or use properties from other types.
++        - If a property is absent from the schema or you are unsure, DO NOT include it.
++        - Property types must match the schema exactly. Property keys are unique within each type.
++        - Use schema examples to guide structure; adapt them, do not copy verbatim.
++        - Use only `{{ }}` Pebble expressions found in schema examples.
++
++        EDITING BEHAVIOR:
++        - Determine whether the user wants an addition, deletion, modification, or full rewrite. Only change the relevant parts.
++        - If the current dashboard is unrelated to the request, discard it and start fresh.
++        - For troubleshooting requests, fix the related expression or configuration.
++        - Always preserve root-level `id` and `title` if provided, but ensure both are set.
++        - If no `id` is set, derive one from the title using RFC1035 (lowercase, hyphens, max 63 chars) or generate a random one.
+         - Unless specified by the user, do not assume any external services or ports.
+-        - Except for error scenarios, output only the raw YAML, with no explanation or additional text.
+-        - A property key is unique within each type.
+-        
+-        IMPORTANT: If the user prompt cannot be fulfilled with the schema, instead of generating a Dashboard, reply: `{_{dashboardGenerationError}_}`.
+-        Do not invent properties or types. Strictly follow the provided schema.""")
++
++        RESPONSE FORMAT:
++        - Output only raw YAML. No explanations, no surrounding text.
++        - If the request cannot be fulfilled with the schema, reply exactly: `{_{dashboardGenerationError}_}`.
++        - Do not invent properties or types. Strictly follow the provided schema.""")
+     String buildDashboard(
+         @V("dashboardSchema") String dashboardSchema,
+         @V("dashboardGenerationError") String dashboardGenerationError,
+diff --git a/src/main/java/io/kestra/libs/copilot/services/ai/FlowYamlBuilder.java b/src/main/java/io/kestra/libs/copilot/services/ai/FlowYamlBuilder.java
+index 9923947..36d91d6 100644
+--- a/src/main/java/io/kestra/libs/copilot/services/ai/FlowYamlBuilder.java
++++ b/src/main/java/io/kestra/libs/copilot/services/ai/FlowYamlBuilder.java
+@@ -6,56 +6,58 @@ import dev.langchain4j.service.V;
+ 
+ public interface FlowYamlBuilder {
+     @SystemMessage("""
+-        You are an expert in generating Kestra Flow YAML. Your task is to generate a valid Kestra Flow YAML that follows user's requirements strictly following the following json schema (when provided):
++        You are an expert Kestra Flow YAML generator. Generate valid YAML strictly following this JSON schema:
+         ```
+         {_{flowSchema}_}
+         ```
+-        
+-        Before generating YAML, if {_{namespace}_} is provided, call the tool getPluginDefaults(tenantId, namespace) and use the returned plugin defaults to decide which task properties to omit. Respect `forced: true` defaults which override task values at runtime.
+-        
+-        Additional runtime inputs available to you as variables (preferred over embedding data inside the schema):
+-        - {_{namespace}_}: An explicit namespace string provided separately. If present, prefer this over any namespace found in the YAML snippet.
+-        - {_{tenantId}_}: An explicit tenant identifier (may be null for single-tenant deployments). If present, prefer this over any tenantId found in the YAML snippet.
+-        
+-        Here are the rules:
+-        - Use examples, properties, and outputs only as specified in the schema.
+-        - If the user asks for troubleshooting, try to fix any related expression or task.
+-        - If the user current flow seems unrelated, you can discard it and start from scratch, otherwise try to keep what you can from the current Flow while still replying to the user's intent.
+-        - Identify if the user requests an addition, deletion, or modification of specific tasks, or a full rewrite of their flow. Only modify the relevant part.
+-         If the change scope is unclear, discard the initial Flow if it does not fit the user’s needs.
+-         Avoid duplicating existing intent (e.g., if the Flow logs "hi" and the user wants "hello world", replace the existing message).
+-        - Use only the types and properties explicitly defined in the above schema. Do not invent, guess, or use properties from other types.
+-        - If a property is not present in the schema for a given type or you are unsure whether it exists or not DO NOT INCLUDE IT.
+-        - The type of each property must match the schema exactly.
+-        - Do not use any types not present in the schema in a given section.
+-        - Use only double curly brackets surrounded expressions available in the provided examples and schema. Those are pebble expressions.
+-        - The following variables are always available in expressions: `flow.id`, `flow.namespace`, `flow.name`, `flow.description`, `execution.id`.
+-        - Use provided examples to guide property usage and structure. Adapt them as needed; do not copy them verbatim.
+-        - Some properties accept multiple types (string, array, object). Choose the right type based on the provided examples.
+-        - Adjust `default` property values to match the user's intent.
+-        - Flow-level outputs are used to return values from the Flow execution. If the user asks that the Flow should output something, you can include flow outputs. Otherwise, use only task outputs and only if explicitly requested to pass data between tasks.
+-        - Use ForEach task to perform an action a given number of times; use LoopUntil to perform some action until a condition is met.
+-        - Detect and include any required data-fetching tasks (HTTP, database, etc.).
+-        - For state-detection concepts, include KV tasks to fetch and store state to track changes between executions.
+-        - Triggers initiate a Flow execution based on events or interval, while tasks perform actions within a Flow. Always distinguish between them and include both as needed.
+-        - Include AT LEAST ONE trigger if execution should start based on an event or interval.
+-        - Triggers expose some variables that can be accessed through `trigger.outputName` in expressions. The only variables available are those defined in the trigger's outputs.
+-        - Unless specified by the user, never assume a local port to serve any content, always use a remote URL (like a public HTTP server) to fetch content.
+-        - Unless specified by the user, do not use any authenticated API, always use public APIs or those that don't require authentication.
+-        - To avoid escaping quotes, use double quotes first and if you need quotes inside, use single ones. For example: `message: "Hello {{inputs.userJson | jq('.name')}}"` is preferred.
+-        - A property key is unique within each type.
+-        - When fetching data from the JDBC plugin, always use fetchType: STORE.
+-        - Manipulating date in pebble expressions can be done through `dateAdd` (`{{now()|dateAdd(-1,'DAYS')}}`) and `date` filters (`{{"July 24, 2001"|date("yyyy-MM-dd",existingFormat="MMMM dd, yyyy")}}`). Any comparison from a number returned by `date` is a string so `| number` may be used before.
+-        - Current date is `{{current_date_time}}`.
++
++        RUNTIME CONTEXT:
++        - Namespace: {_{namespace}_} (prefer over any namespace in the YAML snippet)
++        - Tenant ID: {_{tenantId}_} (may be null for single-tenant deployments; prefer over any tenantId in the YAML snippet)
++        - If namespace is provided, call getPluginDefaults(tenantId, namespace) first. Omit task properties covered by the returned defaults. Respect `forced: true` defaults which override task values at runtime.
++        - Current date: `{{current_date_time}}`.
++
++        SCHEMA COMPLIANCE (critical):
++        - Use ONLY types and properties explicitly defined in the schema. Never invent, guess, or use properties from other types.
++        - If a property is absent from the schema or you are unsure, DO NOT include it.
++        - Property types must match the schema exactly. Property keys are unique within each type.
++        - For multi-typed properties (string/array/object), choose the type based on schema examples.
++        - Use schema examples to guide structure; adapt them, do not copy verbatim.
++
++        EDITING BEHAVIOR:
++        - Determine whether the user wants an addition, deletion, modification, or full rewrite. Only change the relevant parts.
++        - If the current Flow is unrelated to the request, discard it and start fresh.
++        - If scope is unclear and the current Flow doesn’t fit, discard it.
++        - Avoid duplicating intent (e.g., if the Flow logs "hi" and user wants "hello world", replace the message).
+         - Always preserve root-level `id` and `namespace` if provided.
+-        - Don't add any Schedule trigger unless a regular occurrence is asked.
+-        - If the user uses vague references ("it", "that"), infer context from the current Flow YAML or the explicit `namespace`/`tenantId` variables.
+-        - Except for error scenarios, output only the raw YAML, with no explanation or additional text.
+-        - If you have any other information to share to the user, add them as comments in the YAML using `#` at the beginning of the raw YAML.
+-        - Never add raw text in the response
+-        
+-        IMPORTANT: If the user prompt cannot be fulfilled with the schema, instead of generating a Flow, reply: `{_{flowGenerationError}_}`.
+-        Do not invent properties or types. Strictly follow the provided schema.""")
++        - For troubleshooting requests, fix the related expression or task.
++        - If the user uses vague references ("it", "that"), infer context from the current Flow YAML or namespace/tenantId.
++
++        EXPRESSIONS (Pebble):
++        - Use only `{{ }}` expressions found in schema examples. Always-available variables: `flow.id`, `flow.namespace`, `flow.name`, `flow.description`, `execution.id`.
++        - Trigger outputs are accessed via `trigger.outputName`; only variables defined in the trigger’s outputs are available.
++        - Date manipulation: `dateAdd` filter (`{{now()|dateAdd(-1,’DAYS’)}}`), `date` filter (`{{"July 24, 2001"|date("yyyy-MM-dd",existingFormat="MMMM dd, yyyy")}}`). Use `| number` before numeric comparisons on date results.
++        - Prefer double quotes for YAML values; use single quotes inside: `message: "Hello {{inputs.userJson | jq(‘.name’)}}"`.
++
++        KESTRA DOMAIN RULES:
++        - ForEach for fixed repetitions; LoopUntil for condition-based loops.
++        - Include data-fetching tasks (HTTP, database, etc.) when external data is needed.
++        - Use KV tasks for state tracking across executions.
++        - Triggers start a Flow (event/interval); tasks act within it. Include both as needed.
++        - Include at least one trigger if the Flow should start on an event or schedule. Do NOT add a Schedule trigger unless regular occurrence is requested.
++        - JDBC plugin queries: always use `fetchType: STORE`.
++        - Unless specified by the user, use remote URLs (not local ports) and public/unauthenticated APIs.
++
++        OUTPUTS:
++        - Include flow-level outputs only if the user explicitly asks the Flow to output something.
++        - Use task outputs only when explicitly needed to pass data between tasks.
++        - Adjust `default` property values to match the user’s intent.
++
++        RESPONSE FORMAT:
++        - Output only raw YAML. No explanations, no surrounding text.
++        - Use YAML `#` comments for any additional information, placed at the top of the output.
++        - If the request cannot be fulfilled with the schema, reply exactly: `{_{flowGenerationError}_}`.
++        - Do not invent properties or types. Strictly follow the provided schema.""")
+     String buildFlow(
+         @V("flowSchema") String flowSchema,
+         @V("flowGenerationError") String flowGenerationError,
+diff --git a/src/main/java/io/kestra/libs/copilot/services/ai/PluginFinder.java b/src/main/java/io/kestra/libs/copilot/services/ai/PluginFinder.java
+index 2e4ed97..35f613b 100644
+--- a/src/main/java/io/kestra/libs/copilot/services/ai/PluginFinder.java
++++ b/src/main/java/io/kestra/libs/copilot/services/ai/PluginFinder.java
+@@ -8,19 +8,24 @@ import java.util.List;
+ 
+ public interface PluginFinder {
+     @SystemMessage("""
+-        You are a plugin specialist for the Kestra Flow builder service. Your task is to identify the most relevant plugin types for building a Kestra Flow based on the user's intent, using the list below. Follow these guidelines:
+-        - Match plugin types by technology name or similar terms (e.g., "mongo" matches "MongoDB", "postgres" matches "PostgreSQL").
+-        - If a task requires repeating some action a set number of times, use the ForEach task. If the user asks to perform some action until a condition is met, use the LoopUntil task.
+-        - If data fetching is required, include appropriate tasks (e.g., database or HTTP tasks). If the flow needs to obtain data not already available, include a relevant data-fetching task.
+-        - For state-detection concepts, include KV tasks to fetch and store state to track changes between executions.
+-        - Triggers initiate a Flow execution based on events or interval, while tasks perform actions within a Flow. Always distinguish between them and include both as needed.
+-        - Include AT LEAST ONE trigger if execution should start based on an event or interval.
+-        - Every flow must include at least one task that is not a trigger.
+-        - ALWAYS include all plugin types present in the current Flow YAML. If the user asks for troubleshooting, also include additional types if required.
+-        Use only the plugin types from the list below. You may select up to 10 types but you MUST ALWAYS return AT LEAST one type. Below is the list of all available plugin types in Kestra, each formatted as 'type:description':
++        You are a Kestra plugin specialist. Given a user's intent, select the most relevant plugin types from the catalog below.
++
++        CONSTRAINTS:
++        - Return 1–10 plugin types. You MUST return at least one.
++        - Use ONLY types from the catalog. Return only type names, nothing else.
++        - ALWAYS include all plugin types already present in the current Flow YAML.
++        - For troubleshooting requests, include additional types if needed to fix the issue.
++
++        INTENT-TO-PLUGIN MAPPING:
++        - Match by technology name or synonym (e.g., "mongo" → MongoDB, "postgres" → PostgreSQL).
++        - Repetition a fixed number of times → ForEach task. Repeat until a condition → LoopUntil task.
++        - Data retrieval needed → include the appropriate data-fetching task (HTTP, database, etc.).
++        - Tracking state across executions → include KV tasks.
++        - Event-driven or scheduled start → include a trigger type. Every flow also needs at least one non-trigger task.
++
++        CATALOG (type:description):
+         ```
+         {_{pluginTypes}_}
+-        ```
+-        IMPORTANT: Respond with a list of valid plugin types from the list above. Return only the types.""")
++        ```""")
+     List<String> findPlugins(@V("pluginTypes") String pluginTypes, @UserMessage String userPrompt);
+ }
+diff --git a/src/test/java/io/kestra/libs/copilot/services/ai/DashboardAiCopilotTest.java b/src/test/java/io/kestra/libs/copilot/services/ai/DashboardAiCopilotTest.java
+index e302bb3..ef2bcc8 100644
+--- a/src/test/java/io/kestra/libs/copilot/services/ai/DashboardAiCopilotTest.java
++++ b/src/test/java/io/kestra/libs/copilot/services/ai/DashboardAiCopilotTest.java
+@@ -98,4 +98,56 @@ class DashboardAiCopilotTest extends LlmAiCopilotTest {
+         assertThat(parsedYaml.path("charts").get(0).path("source").path("type").asText()).isEqualTo("Text");
+         assertThat(parsedYaml.path("charts").get(0).path("source").path("content").asText()).containsIgnoringCase("hello");
+     }
++
++    @Test
++    @Tag("llm")
++    void sanityCheckDashboardModificationPreservesExisting() throws Exception {
++        // Given
++        ChatModel model = realChatModel();
++        PluginFinder pluginFinder = AiServices.create(PluginFinder.class, model);
++        DashboardYamlBuilder dashboardYamlBuilder = AiServices.create(DashboardYamlBuilder.class, model);
++
++        String existingYaml = """
++            id: metrics-dashboard
++            title: Metrics Dashboard
++            charts:
++              - id: overview
++                type: io.kestra.plugin.core.dashboard.chart.Markdown
++                chartOptions:
++                  displayName: Overview
++                source:
++                  type: Text
++                  content: "## Welcome to the dashboard"
++            """;
++
++        // When
++        String yaml = new TestDashboardAiCopilot().generateDashboard(
++            pluginFinder,
++            dashboardYamlBuilder,
++            (ignoredPlugins) -> TestSchemas.DASHBOARD_SCHEMA,
++            List.of(new PluginMetadata<>("io.kestra.plugin.core.dashboard.chart.Markdown", "Add context and insights with Markdown.", "charts", false, 1)),
++            new DashboardGenerationPrompt(
++                "conversation-llm-dashboard-modify",
++                "Add a second Markdown chart with heading 'System Status' and content 'All systems operational'.",
++                existingYaml
++            )
++        );
++
++        // Then
++        JsonNode parsedYaml = JacksonMapper.ofYaml().readTree(yaml);
++        assertThat(parsedYaml.path("id").asText()).isEqualTo("metrics-dashboard");
++        assertThat(parsedYaml.path("title").asText()).isEqualTo("Metrics Dashboard");
++        assertThat(parsedYaml.path("charts").size()).isGreaterThanOrEqualTo(2);
++
++        // Verify at least one chart contains the new content
++        boolean foundOperational = false;
++        for (JsonNode chart : parsedYaml.path("charts")) {
++            String content = chart.path("source").path("content").asText("");
++            if (content.toLowerCase().contains("operational")) {
++                foundOperational = true;
++                break;
++            }
++        }
++        assertThat(foundOperational).as("Expected a chart with content containing 'operational'").isTrue();
++    }
+ }
+diff --git a/src/test/java/io/kestra/libs/copilot/services/ai/FlowAiCopilotTest.java b/src/test/java/io/kestra/libs/copilot/services/ai/FlowAiCopilotTest.java
+index c60bf0f..6088225 100644
+--- a/src/test/java/io/kestra/libs/copilot/services/ai/FlowAiCopilotTest.java
++++ b/src/test/java/io/kestra/libs/copilot/services/ai/FlowAiCopilotTest.java
+@@ -100,4 +100,137 @@ class FlowAiCopilotTest extends LlmAiCopilotTest {
+         assertThat(parsedYaml.path("tasks").get(0).path("type").asText()).isEqualTo("io.kestra.plugin.core.log.Log");
+         assertThat(parsedYaml.path("tasks").get(0).path("message").asText()).containsIgnoringCase("hello");
+     }
++
++    @Test
++    @Tag("llm")
++    void sanityCheckMultiTaskFlowWithTriggerAndInputs() throws Exception {
++        // Given
++        ChatModel model = realChatModel();
++        PluginFinder pluginFinder = AiServices.create(PluginFinder.class, model);
++        FlowYamlBuilder flowYamlBuilder = AiServices.create(FlowYamlBuilder.class, model);
++
++        // When
++        String yaml = new TestFlowAiCopilot().generateFlow(
++            pluginFinder,
++            flowYamlBuilder,
++            (ignoredPlugins) -> TestSchemas.FLOW_SCHEMA,
++            List.of(
++                new PluginMetadata<>("io.kestra.plugin.core.log.Log", "Emit log entries from a flow.", "tasks", false, 1),
++                new PluginMetadata<>("io.kestra.plugin.core.http.Request", "Make an HTTP request.", "tasks", false, 1)
++            ),
++            new FlowGenerationPrompt(
++                "conversation-llm-multi-task",
++                "Create a flow with id data_pipeline in namespace company.analytics with a string input named api_url, "
++                    + "an HTTP Request task that GETs from {{inputs.api_url}}, and a Log task that logs the HTTP response body.",
++                null,
++                "company.analytics"
++            ),
++            "my_tenant"
++        );
++
++        // Then
++        JsonNode parsedYaml = JacksonMapper.ofYaml().readTree(yaml);
++        assertThat(parsedYaml.path("id").asText()).isEqualTo("data_pipeline");
++        assertThat(parsedYaml.path("namespace").asText()).isEqualTo("company.analytics");
++        assertThat(parsedYaml.path("inputs")).isNotEmpty();
++        assertThat(parsedYaml.path("tasks").size()).isGreaterThanOrEqualTo(2);
++
++        // Verify task types present
++        List<String> taskTypes = new java.util.ArrayList<>();
++        parsedYaml.path("tasks").forEach(task -> taskTypes.add(task.path("type").asText()));
++        assertThat(taskTypes).contains("io.kestra.plugin.core.http.Request");
++        assertThat(taskTypes).contains("io.kestra.plugin.core.log.Log");
++    }
++
++    @Test
++    @Tag("llm")
++    void sanityCheckFlowModificationPreservesExisting() throws Exception {
++        // Given
++        ChatModel model = realChatModel();
++        PluginFinder pluginFinder = AiServices.create(PluginFinder.class, model);
++        FlowYamlBuilder flowYamlBuilder = AiServices.create(FlowYamlBuilder.class, model);
++
++        String existingYaml = """
++            id: my_flow
++            namespace: dev
++            tasks:
++              - id: log_hello
++                type: io.kestra.plugin.core.log.Log
++                message: hello""";
++
++        // When
++        String yaml = new TestFlowAiCopilot().generateFlow(
++            pluginFinder,
++            flowYamlBuilder,
++            (ignoredPlugins) -> TestSchemas.FLOW_SCHEMA,
++            List.of(
++                new PluginMetadata<>("io.kestra.plugin.core.log.Log", "Emit log entries from a flow.", "tasks", false, 1),
++                new PluginMetadata<>("io.kestra.plugin.core.http.Request", "Make an HTTP request.", "tasks", false, 1)
++            ),
++            new FlowGenerationPrompt(
++                "conversation-llm-modify",
++                "Add an HTTP GET request task to https://example.com before the log task.",
++                existingYaml,
++                "dev"
++            ),
++            null
++        );
++
++        // Then
++        JsonNode parsedYaml = JacksonMapper.ofYaml().readTree(yaml);
++        assertThat(parsedYaml.path("id").asText()).isEqualTo("my_flow");
++        assertThat(parsedYaml.path("namespace").asText()).isEqualTo("dev");
++        assertThat(parsedYaml.path("tasks").size()).isGreaterThanOrEqualTo(2);
++
++        // Verify HTTP task is present
++        List<String> taskTypes = new java.util.ArrayList<>();
++        parsedYaml.path("tasks").forEach(task -> taskTypes.add(task.path("type").asText()));
++        assertThat(taskTypes).contains("io.kestra.plugin.core.http.Request");
++        assertThat(taskTypes).contains("io.kestra.plugin.core.log.Log");
++    }
++
++    @Test
++    @Tag("llm")
++    void sanityCheckTroubleshootingFixesBrokenExpression() throws Exception {
++        // Given
++        ChatModel model = realChatModel();
++        PluginFinder pluginFinder = AiServices.create(PluginFinder.class, model);
++        FlowYamlBuilder flowYamlBuilder = AiServices.create(FlowYamlBuilder.class, model);
++
++        String brokenYaml = """
++            id: broken_flow
++            namespace: dev
++            tasks:
++              - id: log_task
++                type: io.kestra.plugin.core.log.Log
++                message: "{{ flow.id }"
++            """;
++
++        // When
++        String yaml = new TestFlowAiCopilot().generateFlow(
++            pluginFinder,
++            flowYamlBuilder,
++            (ignoredPlugins) -> TestSchemas.FLOW_SCHEMA,
++            List.of(
++                new PluginMetadata<>("io.kestra.plugin.core.log.Log", "Emit log entries from a flow.", "tasks", false, 1)
++            ),
++            new FlowGenerationPrompt(
++                "conversation-llm-troubleshoot",
++                "Fix the broken expression in the log task.",
++                brokenYaml,
++                "dev"
++            ),
++            null
++        );
++
++        // Then
++        JsonNode parsedYaml = JacksonMapper.ofYaml().readTree(yaml);
++        assertThat(parsedYaml.path("id").asText()).isEqualTo("broken_flow");
++        assertThat(parsedYaml.path("namespace").asText()).isEqualTo("dev");
++        assertThat(parsedYaml.path("tasks").size()).isEqualTo(1);
++        String message = parsedYaml.path("tasks").get(0).path("message").asText();
++        assertThat(message).contains("flow.id");
++        // Ensure the expression is properly closed
++        assertThat(message).contains("}}");
++    }
+ }
+diff --git a/src/test/java/io/kestra/libs/copilot/services/ai/PluginFinderTest.java b/src/test/java/io/kestra/libs/copilot/services/ai/PluginFinderTest.java
+new file mode 100644
+index 0000000..77a2875
+--- /dev/null
++++ b/src/test/java/io/kestra/libs/copilot/services/ai/PluginFinderTest.java
+@@ -0,0 +1,94 @@
++package io.kestra.libs.copilot.services.ai;
++
++import dev.langchain4j.model.chat.ChatModel;
++import dev.langchain4j.service.AiServices;
++import io.kestra.libs.copilot.models.in.PluginMetadata;
++import org.junit.jupiter.api.Tag;
++import org.junit.jupiter.api.Test;
++
++import java.util.List;
++import java.util.Map;
++import java.util.stream.Collectors;
++
++import static org.assertj.core.api.Assertions.assertThat;
++
++class PluginFinderTest extends LlmAiCopilotTest {
++
++    private static String serializePlugins(List<PluginMetadata<Integer>> plugins) {
++        try {
++            Map<String, String> descriptionByType = plugins.stream()
++                .filter(plugin -> !plugin.deprecated())
++                .collect(Collectors.toMap(
++                    PluginMetadata::type,
++                    plugin -> plugin.description() == null ? "" : plugin.description(),
++                    (existing, ignored) -> existing
++                ));
++            return JacksonMapper.ofJson().writeValueAsString(descriptionByType.entrySet().stream()
++                .map(entry -> Map.of("type", entry.getKey(), "description", entry.getValue()))
++                .toList());
++        } catch (Exception e) {
++            return "[]";
++        }
++    }
++
++    @Test
++    @Tag("llm")
++    void sanityCheckPluginFinderSelectsHttpAndLog() {
++        // Given
++        ChatModel model = realChatModel();
++        PluginFinder pluginFinder = AiServices.create(PluginFinder.class, model);
++
++        List<PluginMetadata<Integer>> plugins = List.of(
++            new PluginMetadata<>("io.kestra.plugin.core.log.Log", "Emit log entries from a flow.", "tasks", false, 1),
++            new PluginMetadata<>("io.kestra.plugin.core.http.Request", "Make an HTTP request.", "tasks", false, 1)
++        );
++
++        // When
++        List<String> result = pluginFinder.findPlugins(
++            serializePlugins(plugins),
++            "I want to fetch data from an API and log the result."
++        );
++
++        // Then
++        assertThat(result).hasSizeBetween(1, 10);
++        assertThat(result).contains("io.kestra.plugin.core.http.Request");
++        assertThat(result).contains("io.kestra.plugin.core.log.Log");
++    }
++
++    @Test
++    @Tag("llm")
++    void sanityCheckPluginFinderPreservesExistingPlugins() {
++        // Given
++        ChatModel model = realChatModel();
++        PluginFinder pluginFinder = AiServices.create(PluginFinder.class, model);
++
++        List<PluginMetadata<Integer>> plugins = List.of(
++            new PluginMetadata<>("io.kestra.plugin.core.log.Log", "Emit log entries from a flow.", "tasks", false, 1),
++            new PluginMetadata<>("io.kestra.plugin.core.http.Request", "Make an HTTP request.", "tasks", false, 1)
++        );
++
++        String userPrompt = """
++            Current Flow YAML:
++            ```yaml
++            id: my_flow
++            namespace: dev
++            tasks:
++              - id: log_hello
++                type: io.kestra.plugin.core.log.Log
++                message: hello
++            ```
++
++            User's prompt:
++            ``
++            Also add an HTTP request task to fetch data from an API.
++            ```""";
++
++        // When
++        List<String> result = pluginFinder.findPlugins(serializePlugins(plugins), userPrompt);
++
++        // Then
++        assertThat(result).hasSizeBetween(1, 10);
++        assertThat(result).contains("io.kestra.plugin.core.log.Log");
++        assertThat(result).contains("io.kestra.plugin.core.http.Request");
++    }
++}
