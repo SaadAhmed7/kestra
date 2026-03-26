@@ -1,0 +1,165 @@
+{
+    "execution": {
+        "id": "exec-logs-001",
+        "namespace": "company.team",
+        "flowId": "hello-world",
+        "flowRevision": 1,
+        "state": {
+            "current": "FAILED",
+            "startDate": "2025-01-15T13:57:00.000Z",
+            "endDate": "2025-01-15T13:57:12.000Z",
+            "duration": "PT12S",
+            "histories": [
+                {"state": "CREATED", "date": "2025-01-15T13:57:00.000Z"},
+                {"state": "RUNNING", "date": "2025-01-15T13:57:01.000Z"},
+                {"state": "FAILED",  "date": "2025-01-15T13:57:12.000Z"}
+            ]
+        },
+        "taskRunList": [
+            {
+                "id": "taskrun-a",
+                "taskId": "say-hello",
+                "executionId": "exec-logs-001",
+                "state": {
+                    "current": "SUCCESS",
+                    "startDate": "2025-01-15T13:57:01.000Z",
+                    "endDate": "2025-01-15T13:57:05.000Z",
+                    "duration": "PT4S",
+                    "histories": [
+                        {"state": "CREATED", "date": "2025-01-15T13:57:01.000Z"},
+                        {"state": "RUNNING", "date": "2025-01-15T13:57:02.000Z"},
+                        {"state": "SUCCESS", "date": "2025-01-15T13:57:05.000Z"}
+                    ]
+                },
+                "attempts": [
+                    {
+                        "state": {
+                            "current": "SUCCESS",
+                            "startDate": "2025-01-15T13:57:02.000Z",
+                            "endDate": "2025-01-15T13:57:05.000Z"
+                        }
+                    }
+                ],
+                "outputs": {}
+            },
+            {
+                "id": "taskrun-b",
+                "taskId": "failing-task",
+                "executionId": "exec-logs-001",
+                "state": {
+                    "current": "FAILED",
+                    "startDate": "2025-01-15T13:57:05.000Z",
+                    "endDate": "2025-01-15T13:57:12.000Z",
+                    "duration": "PT7S",
+                    "histories": [
+                        {"state": "CREATED", "date": "2025-01-15T13:57:05.000Z"},
+                        {"state": "RUNNING", "date": "2025-01-15T13:57:06.000Z"},
+                        {"state": "FAILED",  "date": "2025-01-15T13:57:12.000Z"}
+                    ]
+                },
+                "attempts": [
+                    {
+                        "state": {
+                            "current": "FAILED",
+                            "startDate": "2025-01-15T13:57:06.000Z",
+                            "endDate": "2025-01-15T13:57:12.000Z"
+                        }
+                    }
+                ],
+                "outputs": {}
+            }
+        ],
+        "metadata": {
+            "originalCreatedDate": "2025-01-15T13:57:00.000Z",
+            "attemptNumber": 1
+        }
+    },
+    "logs": {
+        "total": 6,
+        "results": [
+            {
+                "taskRunId": "taskrun-a",
+                "attemptNumber": 0,
+                "level": "INFO",
+                "message": "Starting task say-hello",
+                "timestamp": "2025-01-15T13:57:02.100Z",
+                "namespace": "company.team",
+                "flowId": "hello-world",
+                "taskId": "say-hello",
+                "executionId": "exec-logs-001"
+            },
+            {
+                "taskRunId": "taskrun-a",
+                "attemptNumber": 0,
+                "level": "INFO",
+                "message": "Hello, World! Task completed successfully.",
+                "timestamp": "2025-01-15T13:57:04.500Z",
+                "namespace": "company.team",
+                "flowId": "hello-world",
+                "taskId": "say-hello",
+                "executionId": "exec-logs-001"
+            },
+            {
+                "taskRunId": "taskrun-a",
+                "attemptNumber": 0,
+                "level": "DEBUG",
+                "message": "Output variables written to context.",
+                "timestamp": "2025-01-15T13:57:04.800Z",
+                "namespace": "company.team",
+                "flowId": "hello-world",
+                "taskId": "say-hello",
+                "executionId": "exec-logs-001"
+            },
+            {
+                "taskRunId": "taskrun-b",
+                "attemptNumber": 0,
+                "level": "INFO",
+                "message": "Starting task failing-task",
+                "timestamp": "2025-01-15T13:57:06.200Z",
+                "namespace": "company.team",
+                "flowId": "hello-world",
+                "taskId": "failing-task",
+                "executionId": "exec-logs-001"
+            },
+            {
+                "taskRunId": "taskrun-b",
+                "attemptNumber": 0,
+                "level": "WARN",
+                "message": "Retrying connection attempt 1/3...",
+                "timestamp": "2025-01-15T13:57:08.000Z",
+                "namespace": "company.team",
+                "flowId": "hello-world",
+                "taskId": "failing-task",
+                "executionId": "exec-logs-001"
+            },
+            {
+                "taskRunId": "taskrun-b",
+                "attemptNumber": 0,
+                "level": "ERROR",
+                "message": "Task failed: connection refused after 3 retries. Check your endpoint configuration.",
+                "timestamp": "2025-01-15T13:57:11.900Z",
+                "namespace": "company.team",
+                "flowId": "hello-world",
+                "taskId": "failing-task",
+                "executionId": "exec-logs-001"
+            }
+        ]
+    },
+    "flow": {
+        "id": "hello-world",
+        "namespace": "company.team",
+        "revision": 1,
+        "tasks": [
+            {
+                "id": "say-hello",
+                "type": "io.kestra.plugin.core.log.Log",
+                "message": "Hello, World!"
+            },
+            {
+                "id": "failing-task",
+                "type": "io.kestra.plugin.core.log.Log",
+                "message": "This will fail"
+            }
+        ]
+    }
+}

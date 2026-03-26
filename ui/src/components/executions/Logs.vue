@@ -185,6 +185,11 @@
         created() {
             this.filter = (this.$route.query.q || undefined);
         },
+        mounted() {
+            if (this.raw_view) {
+                this.loadLogs();
+            }
+        },
         watch:{
             routeLevel: {
                 handler() {

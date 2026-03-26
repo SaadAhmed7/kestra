@@ -372,7 +372,7 @@
                 immediate: true,
             },
             followedExecution: {
-                handler: async function (newExecution, oldExecution) {
+                handler(newExecution, oldExecution) {
                     if (!newExecution) {
                         return;
                     }
@@ -391,15 +391,21 @@
                         });
                     }
 
+                    // Load flow as a non-blocking side-effect so log loading is not deferred
                     if (!this.targetFlow) {
-                        this.flow = await this.executionsStore.loadFlowForExecution(
+                        this.executionsStore.loadFlowForExecution(
                             {
                                 namespace: newExecution.namespace,
                                 flowId: newExecution.flowId,
                                 revision: newExecution.flowRevision,
                                 store: false,
                             },
-                        );
+                        ).then(flow => {
+                            this.flow = flow;
+                        }).catch(err => {
+                            // Flow loading is non-critical for log display; log the error and continue
+                            console.error("Failed to load flow for execution", err);
+                        });
                     }
 
                     if (!State.isRunning(this.followedExecution.state.current)) {
