@@ -5,6 +5,7 @@ import io.kestra.core.models.Setting;
 import io.kestra.core.models.dashboards.Dashboard;
 import io.kestra.core.models.executions.Execution;
 import io.kestra.core.models.executions.LogEntry;
+import io.kestra.core.models.mcp.Mcp;
 import io.kestra.core.models.executions.MetricEntry;
 import io.kestra.core.models.executions.TaskOutput;
 import io.kestra.core.models.flows.FlowInterface;
@@ -145,6 +146,12 @@ public class JdbcTableConfigsFactory {
     @Named("taskoutputs")
     public InstantiableJdbcTableConfig outputs() {
         return new InstantiableJdbcTableConfig("taskoutputs", TaskOutput.class, "task_outputs");
+    }
+
+    @Bean
+    @Named("mcps")
+    public InstantiableJdbcTableConfig mcp() {
+        return new InstantiableJdbcTableConfig("mcp", Mcp.class, "mcp");
     }
 
     public static class InstantiableJdbcTableConfig extends JdbcTableConfig {
