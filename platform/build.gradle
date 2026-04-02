@@ -165,5 +165,6 @@ dependencies {
         api "io.kestra:scheduler:$version"
         api "io.kestra:worker:$version"
         api "io.kestra.libs:copilot:0.2.4"
+        api 'io.modelcontextprotocol.sdk:mcp:1.1.1'
     }
 }

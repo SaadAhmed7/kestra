@@ -26,7 +26,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import lombok.extern.slf4j.Slf4j;
 
-@Controller("/api/v1/{tenant}/mcps")
+@Controller("/api/v1/{tenant}/mcp")
 @Slf4j
 public class McpController {
 
@@ -38,7 +38,7 @@ public class McpController {
 
     @ExecuteOn(TaskExecutors.IO)
     @Get
-    @Operation(tags = {"Mcps"}, summary = "List MCP servers")
+    @Operation(tags = {"Mcp"}, summary = "List MCP servers")
     public PagedResults<Mcp> listMcps(
         @Parameter(description = "The current page") @QueryValue(defaultValue = "1") @Min(1) int page,
         @Parameter(description = "The current page size") @QueryValue(defaultValue = "10") @Min(1) int size,
@@ -48,7 +48,7 @@ public class McpController {
 
     @ExecuteOn(TaskExecutors.IO)
     @Get(uri = "{id}")
-    @Operation(tags = {"Mcps"}, summary = "Get an MCP server")
+    @Operation(tags = {"Mcp"}, summary = "Get an MCP server")
     public Mcp getMcp(
         @Parameter(description = "The MCP server id") @PathVariable String id) {
         return mcpRepository.get(tenantService.resolveTenant(), id).orElse(null);
@@ -56,7 +56,7 @@ public class McpController {
 
     @ExecuteOn(TaskExecutors.IO)
     @Post
-    @Operation(tags = {"Mcps"}, summary = "Create an MCP server")
+    @Operation(tags = {"Mcp"}, summary = "Create an MCP server")
     public HttpResponse<Mcp> createMcp(
         @RequestBody(description = "The MCP server to create") @Body @Valid Mcp mcp) {
         String tenantId = tenantService.resolveTenant();
@@ -83,7 +83,7 @@ public class McpController {
 
     @ExecuteOn(TaskExecutors.IO)
     @Put(uri = "{id}")
-    @Operation(tags = {"Mcps"}, summary = "Update an MCP server")
+    @Operation(tags = {"Mcp"}, summary = "Update an MCP server")
     public HttpResponse<Mcp> updateMcp(
         @Parameter(description = "The MCP server id") @PathVariable String id,
         @RequestBody(description = "The MCP server to update") @Body @Valid Mcp mcp) {
@@ -116,7 +116,7 @@ public class McpController {
 
     @ExecuteOn(TaskExecutors.IO)
     @Delete(uri = "{id}")
-    @Operation(tags = {"Mcps"}, summary = "Delete an MCP server")
+    @Operation(tags = {"Mcp"}, summary = "Delete an MCP server")
     public HttpResponse<Void> deleteMcp(
         @Parameter(description = "The MCP server id") @PathVariable String id) {
         return mcpRepository.delete(tenantService.resolveTenant(), id)

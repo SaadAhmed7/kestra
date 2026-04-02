@@ -1,0 +1,12 @@
+
+configurations {
+    implementation.extendsFrom(micronaut)
+}
+
+dependencies {
+    implementation project(':core')
+
+    api 'io.modelcontextprotocol.sdk:mcp'
+
+    testImplementation project(':tests')
+}

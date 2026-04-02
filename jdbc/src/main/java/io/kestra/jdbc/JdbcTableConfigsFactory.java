@@ -149,7 +149,7 @@ public class JdbcTableConfigsFactory {
     }
 
     @Bean
-    @Named("mcps")
+    @Named("mcp")
     public InstantiableJdbcTableConfig mcp() {
         return new InstantiableJdbcTableConfig("mcp", Mcp.class, "mcp");
     }

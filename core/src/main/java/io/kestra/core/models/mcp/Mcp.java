@@ -32,6 +32,7 @@ public record Mcp(
     @NotBlank
     String title,
 
+    // ToDo: rename to instruction to match mcp spec
     String description,
 
     boolean enabled,

@@ -38,3 +38,5 @@ include 'processor'
 include 'script'
 
 include 'jmh-benchmarks'
+
+include 'mcp-server'

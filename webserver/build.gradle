@@ -32,6 +32,9 @@ dependencies {
     implementation("dev.langchain4j:langchain4j-http-client-jdk")
     implementation('org.bouncycastle:bcpkix-jdk18on')
 
+    // mcp
+    implementation project(':mcp-server')
+
     implementation("de.siegmar:fastcsv")
 
     // test

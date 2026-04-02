@@ -9,7 +9,7 @@ import jakarta.validation.ConstraintViolationException;
 
 public class EmailInput extends Input<String> {
 
-    private static final String EMAIL_PATTERN = "^$|^[a-zA-Z0-9_!#$%&’*+/=?`{|}~^.-]+@[a-zA-Z0-9.-]+$";
+    public static final String EMAIL_PATTERN = "^$|^[a-zA-Z0-9_!#$%&’*+/=?`{|}~^.-]+@[a-zA-Z0-9.-]+$";
 
     @Override
     public void validate(String input) throws ConstraintViolationException {
