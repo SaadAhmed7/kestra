@@ -88,12 +88,6 @@ public class McpController {
         @Parameter(description = "The MCP server id") @PathVariable String id,
         @RequestBody(description = "The MCP server to update") @Body @Valid Mcp mcp) {
         String tenantId = tenantService.resolveTenant();
-
-        Optional<Mcp> existing = mcpRepository.get(tenantId, id);
-        if (existing.isEmpty()) {
-            return HttpResponse.status(HttpStatus.NOT_FOUND);
-        }
-
         if (!mcp.id().equals(id)) {
             throw new ConstraintViolationException(
                 Collections.singleton(
@@ -106,6 +100,11 @@ public class McpController {
                     )
                 )
             );
+        }
+
+        Optional<Mcp> existing = mcpRepository.get(tenantId, id);
+        if (existing.isEmpty()) {
+            return HttpResponse.status(HttpStatus.NOT_FOUND);
         }
 
         Mcp toSave = new Mcp(tenantId, mcp.id(), mcp.namespace(), mcp.flowId(),

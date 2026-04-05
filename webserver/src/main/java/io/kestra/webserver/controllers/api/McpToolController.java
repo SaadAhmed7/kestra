@@ -60,7 +60,7 @@ public class McpToolController {
         String tenantId = tenantService.resolveTenant();
 
         if (rawBody instanceof List<?> batch) {
-            return handleBatch(tenantId, batch);
+            return handleBatch(tenantId, namespace, server, batch);
         }
 
         if (rawBody instanceof Map<?, ?> rawRequest) {
@@ -108,7 +108,7 @@ public class McpToolController {
     }
 
     @SuppressWarnings("unchecked")
-    private HttpResponse<?> handleBatch(String tenantId, List<?> batch) {
+    private HttpResponse<?> handleBatch(String tenantId, String namespace, String serverId, List<?> batch) {
         List<McpSchema.JSONRPCResponse> responses = new ArrayList<>();
         boolean hasRequests = false;
 
@@ -128,7 +128,7 @@ public class McpToolController {
                 // Request
                 hasRequests = true;
                 McpSchema.JSONRPCRequest request = new McpSchema.JSONRPCRequest("2.0", method, id, rawRequest.get("params"));
-                responses.add(mcpServerFactory.handleRequest(tenantId, request));
+                responses.add(mcpServerFactory.handleRequest(tenantId, namespace, serverId, request));
             }
         }
 
@@ -169,6 +169,8 @@ public class McpToolController {
     @Post(uri = "/messages", consumes = MediaType.APPLICATION_JSON, produces = MediaType.APPLICATION_JSON)
     public HttpResponse<?> handleSseMessage(
         @PathVariable String tenant,
+        @PathVariable String namespace,
+        @PathVariable String server,
         @QueryValue String sessionId,
         @Body Map<String, Object> rawRequest
     ) {
@@ -190,7 +192,7 @@ public class McpToolController {
         } else {
             // Request — dispatch and send response via SSE
             McpSchema.JSONRPCRequest request = new McpSchema.JSONRPCRequest("2.0", method, id, rawRequest.get("params"));
-            McpSchema.JSONRPCResponse response = mcpServerFactory.handleRequest(tenantId, namesp, request);
+            McpSchema.JSONRPCResponse response = mcpServerFactory.handleRequest(tenantId, namespace, server, request);
 
             try {
                 String json = MAPPER.writeValueAsString(response);
