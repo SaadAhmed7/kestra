@@ -1,0 +1,34 @@
+datasources:
+  h2:
+    url: jdbc:h2:mem:public_webserver;TIME ZONE=UTC;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    username: sa
+    password: ""
+    driverClassName: org.h2.Driver
+
+flyway:
+  datasources:
+    h2:
+      enabled: true
+      locations:
+        - classpath:migrations/h2
+      ignore-migration-patterns: "*:missing,*:future"
+      out-of-order: true
+
+kestra:
+  server:
+    liveness:
+      enabled: false
+  repository:
+    type: h2
+  queue:
+    type: h2
+  secret:
+    type: jdbc
+    jdbc:
+      secret: not_really_a_secret_only_for_unit_test
+  mail-service:
+    host: joe@localhost
+    port: 587
+    username: john
+    password: doe
+    from: support@localhost

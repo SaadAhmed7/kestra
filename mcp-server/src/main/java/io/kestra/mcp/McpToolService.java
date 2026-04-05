@@ -32,7 +32,6 @@ public class McpToolService {
     private final FlowToolSchemaMapper flowToolSchemaMapper;
     private final ExecutionStreamingService streamingService;
 
-    @Value("${kestra.mcp.execution-timeout:PT5M}")
     private final Duration executionTimeout;
 
     private static final ObjectMapper MAPPER = JacksonMapper.ofJson(false);
@@ -42,7 +41,8 @@ public class McpToolService {
         DispatchQueueInterface<Execution> executionQueue,
         FlowRepositoryInterface flowRepositoryInterface,
         FlowToolSchemaMapper flowToolSchemaMapper,
-        ExecutionStreamingService streamingService, Duration executionTimeout
+        ExecutionStreamingService streamingService,
+        @Value("${kestra.mcp.execution-timeout:PT5M}") Duration executionTimeout
     ) {
         this.flowInputOutput = flowInputOutput;
         this.executionQueue = executionQueue;

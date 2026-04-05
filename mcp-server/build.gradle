@@ -9,4 +9,10 @@ dependencies {
     api 'io.modelcontextprotocol.sdk:mcp'
 
     testImplementation project(':tests')
+    testImplementation project(':jdbc')
+    testImplementation project(':jdbc-h2')
+    testImplementation project(':jdbc-postgres')
+    testImplementation project(':jdbc-mysql')
+    testImplementation project(':storage-local')
+    testImplementation("io.micronaut.sql:micronaut-jooq")
 }

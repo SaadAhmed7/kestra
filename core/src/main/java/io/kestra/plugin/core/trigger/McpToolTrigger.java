@@ -1,30 +1,36 @@
 package io.kestra.plugin.core.trigger;
 
+import io.kestra.core.models.annotations.Plugin;
 import io.kestra.core.models.property.Property;
 import io.kestra.core.models.triggers.AbstractTrigger;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotNull;
 import lombok.*;
 import lombok.experimental.SuperBuilder;
+
 
 @SuperBuilder
 @ToString
 @EqualsAndHashCode
 @Getter
+@NoArgsConstructor
+@Plugin
+@Schema(title = "Expose a flow as an MCP tool.")
 public class McpToolTrigger extends AbstractTrigger {
     @NotNull
-    private final String toolName;
+    private String toolName;
 
     @NotNull
-    private final String title;
+    private String title;
 
     @NotNull
-    private final String toolDescription;
+    private String toolDescription;
 
     @NotNull
-    private final Annotations annotations;
+    private Annotations annotations;
 
     @NotNull
-    private final String mcpServer = "default";
+    private String mcpServer = "default";
 
 
 

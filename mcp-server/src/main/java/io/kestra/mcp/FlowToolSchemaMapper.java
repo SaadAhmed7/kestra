@@ -27,7 +27,7 @@ public class FlowToolSchemaMapper {
 
     public McpSchema.Tool buildTool(Flow flow, McpToolTrigger toolTrigger) {
         return McpSchema.Tool.builder()
-            .name(toolTrigger.getId())
+            .name(toolTrigger.getToolName())
             .description(toolTrigger.getDescription())
             .title(toolTrigger.getTitle())
             .inputSchema(buildToolInputSchema(

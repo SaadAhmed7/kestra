@@ -1,0 +1,36 @@
+datasources:
+  mysql:
+    url: jdbc:mysql://localhost:3306/kestra_unit_webserver
+    driverClassName: com.mysql.cj.jdbc.Driver
+    username: kestra
+    password: k3str4
+    dialect: MYSQL
+    transactionIsolation: TRANSACTION_READ_COMMITTED
+
+flyway:
+  datasources:
+    mysql:
+      enabled: true
+      locations:
+        - classpath:migrations/mysql
+      ignore-migration-patterns: "*:missing,*:future"
+      out-of-order: true
+
+kestra:
+  server:
+    liveness:
+      enabled: false
+  repository:
+    type: mysql
+  queue:
+    type: mysql
+  secret:
+    type: jdbc
+    jdbc:
+      secret: not_really_a_secret_only_for_unit_test
+  mail-service:
+    host: joe@localhost
+    port: 587
+    username: john
+    password: doe
+    from: support@localhost
