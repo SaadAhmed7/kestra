@@ -152,6 +152,7 @@ public class DefaultExecutor extends AbstractService implements Executor {
     private Timer executionDelayLoopTimer;
 
     @Inject
+    @SuppressWarnings("this-escape")
     public DefaultExecutor(ApplicationEventPublisher<ServiceStateChangeEvent> eventPublisher, ExecutorsUtils executorsUtils, @Value("${kestra.executor.thread-count:0}") int threadCount) {
         super(ServiceType.EXECUTOR, eventPublisher);
 
@@ -194,6 +195,7 @@ public class DefaultExecutor extends AbstractService implements Executor {
     }
 
     @Override
+    @SuppressWarnings("deprecation")
     public void run() {
         // listen to executor related queues
         this.queueSubscribers.addFirst(this.executionQueue.subscriber().subscribe(this::executionQueue));
