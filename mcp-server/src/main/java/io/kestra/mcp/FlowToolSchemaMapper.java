@@ -234,7 +234,7 @@ public class FlowToolSchemaMapper {
         return baseSchema;
     }
 
-    //Multiselect
+
     private static Map<String, Object> toObjectType(Input<?> input, Map<String, Object> baseSchema) {
         baseSchema.put(
             "additionalProperties", true

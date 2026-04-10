@@ -7,6 +7,7 @@ dependencies {
     implementation project(':core')
 
     api 'io.modelcontextprotocol.sdk:mcp'
+    implementation 'com.github.ben-manes.caffeine:caffeine'
 
     testImplementation project(':tests')
     testImplementation project(':jdbc')

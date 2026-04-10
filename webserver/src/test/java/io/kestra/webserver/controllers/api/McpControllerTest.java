@@ -63,7 +63,7 @@ class McpControllerTest {
     @Test
     void givenMcpWithMissingRequiredFields_whenCreate_thenValidationErrorReturned() {
         // Given — null title and namespace violate @NotBlank/@NotNull
-        Mcp mcp = new Mcp(null, IdUtils.create(), null, null, null, null, true, false, null, null);
+        Mcp mcp = new Mcp(null, IdUtils.create(), null, null, null, true, false, null, null);
 
         // When / Then
         HttpClientResponseException e = Assertions.assertThrows(
@@ -128,7 +128,7 @@ class McpControllerTest {
         // Given
         Mcp mcp = buildMcp(IdUtils.create());
         client.toBlocking().retrieve(POST(MCP_PATH, mcp), Mcp.class);
-        Mcp updated = new Mcp(null, mcp.id(), mcp.namespace(), mcp.flowId(), "Updated Title", mcp.description(), false, false, null, null);
+        Mcp updated = new Mcp(null, mcp.id(), mcp.namespace(), "Updated Title", mcp.description(), false, false, null, null);
 
         // When
         Mcp result = client.toBlocking().retrieve(PUT(MCP_PATH + "/" + mcp.id(), updated), Mcp.class);
@@ -195,6 +195,6 @@ class McpControllerTest {
     }
 
     private static Mcp buildMcp(String id) {
-        return new Mcp(null, id, "io.kestra.test.mcp", null, "Test MCP Server", "A test description", true, false, null, null);
+        return new Mcp(null, id, "io.kestra.test.mcp", "Test MCP Server", "A test description", true, false, null, null);
     }
 }

@@ -75,7 +75,7 @@ public class McpController {
             );
         }
 
-        Mcp toSave = new Mcp(tenantId, mcp.id(), mcp.namespace(), mcp.flowId(),
+        Mcp toSave = new Mcp(tenantId, mcp.id(), mcp.namespace(),
             mcp.title(), mcp.description(), mcp.enabled(), false, null, null);
 
         return HttpResponse.ok(mcpRepository.save(null, toSave));
@@ -107,7 +107,7 @@ public class McpController {
             return HttpResponse.status(HttpStatus.NOT_FOUND);
         }
 
-        Mcp toSave = new Mcp(tenantId, mcp.id(), mcp.namespace(), mcp.flowId(),
+        Mcp toSave = new Mcp(tenantId, mcp.id(), mcp.namespace(),
             mcp.title(), mcp.description(), mcp.enabled(), false, null, null);
 
         return HttpResponse.ok(mcpRepository.save(existing.get(), toSave));

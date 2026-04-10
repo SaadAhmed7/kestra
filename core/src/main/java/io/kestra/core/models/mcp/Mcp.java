@@ -26,8 +26,6 @@ public record Mcp(
     @NotBlank
     String namespace,
 
-    String flowId,
-
     @NotNull
     @NotBlank
     String title,
@@ -60,6 +58,6 @@ public record Mcp(
 
     @Override
     public Mcp toDeleted() {
-        return new Mcp(tenantId, id, namespace, flowId, title, description, enabled, true, created, updated);
+        return new Mcp(tenantId, id, namespace, title, description, enabled, true, created, updated);
     }
 }

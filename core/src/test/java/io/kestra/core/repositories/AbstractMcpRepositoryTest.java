@@ -73,7 +73,7 @@ public abstract class AbstractMcpRepositoryTest {
         // Given
         String tenant = TestsUtils.randomTenant(this.getClass().getSimpleName());
         Mcp original = mcpRepository.save(null, createMcp(tenant));
-        Mcp updated = new Mcp(tenant, original.id(), original.namespace(), original.flowId(),
+        Mcp updated = new Mcp(tenant, original.id(), original.namespace(),
             "Updated Title", "Updated description", false, false, null, null);
 
         // When
@@ -172,6 +172,6 @@ public abstract class AbstractMcpRepositoryTest {
 
     private static Mcp createMcp(String tenantId) {
         String id = IdUtils.create();
-        return new Mcp(tenantId, id, "io.kestra.test", null, "Test MCP " + id, "A test MCP server", true, false, null, null);
+        return new Mcp(tenantId, id, "io.kestra.test", "Test MCP " + id, "A test MCP server", true, false, null, null);
     }
 }

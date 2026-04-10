@@ -11,6 +11,7 @@ import io.kestra.core.runners.*;
 import io.kestra.core.runners.MultipleConditionEvent;
 import io.kestra.core.runners.SubflowExecutionEnd;
 import io.kestra.core.runners.SubflowExecutionResult;
+import io.kestra.core.models.mcp.McpSessionNotificationEvent;
 import io.kestra.core.runners.WorkerJobEvent;
 import io.kestra.core.scheduler.events.SchedulerEvent;
 import io.kestra.core.scheduler.events.TriggerEvent;
@@ -47,6 +48,8 @@ public interface QueueFactoryInterface<D> {
     KeyedDispatchQueueInterface<WorkerJobEvent> workerJobEventQueue(D dependencies);
 
     DispatchQueueInterface<WorkerTaskResult> workerTaskResultQueue(D dependencies);
+
+    KeyedDispatchQueueInterface<McpSessionNotificationEvent> mcpSessionNotificationQueue(D dependencies);
 
     DispatchQueueInterface<TerminatedLoopExecution> terminatedLoopExecutionQueue(D dependencies);
 }

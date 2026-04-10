@@ -1,6 +1,11 @@
 package io.kestra.queue.jdbc;
 
 import io.kestra.core.executor.command.ExecutionCommand;
+import io.kestra.core.models.executions.Execution;
+import io.kestra.core.models.mcp.McpSessionNotificationEvent;
+import io.kestra.core.models.executions.ExecutionKilled;
+import io.kestra.core.models.executions.LogEntry;
+import io.kestra.core.models.executions.MetricEntry;
 import io.kestra.core.models.executions.*;
 import io.kestra.core.models.flows.FlowInterface;
 import io.kestra.core.queues.BroadcastQueueInterface;
@@ -158,6 +163,15 @@ public class JdbcQueueFactory implements QueueFactoryInterface<JdbcDependencies>
     public DispatchQueueInterface<WorkerTaskResult> workerTaskResultQueue(JdbcDependencies dependencies) {
         return new JdbcDispatchQueue<>(
             WorkerTaskResult.class, dependencies.queueService(), dependencies.jdbcQueueClient(), dependencies.executorsUtils(), dependencies.metricRegistry(),
+            dependencies.ignoreExecutionService()
+        );
+    }
+
+    @QueueBean
+    @Override
+    public KeyedDispatchQueueInterface<McpSessionNotificationEvent> mcpSessionNotificationQueue(JdbcDependencies dependencies) {
+        return new JdbcKeyedDispatchQueue<>(
+            McpSessionNotificationEvent.class, dependencies.queueService(), dependencies.jdbcQueueClient(), dependencies.executorsUtils(), dependencies.metricRegistry(),
             dependencies.ignoreExecutionService()
         );
     }

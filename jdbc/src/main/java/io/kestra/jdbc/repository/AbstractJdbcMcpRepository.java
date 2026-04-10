@@ -56,11 +56,11 @@ public abstract class AbstractJdbcMcpRepository extends AbstractJdbcCrudReposito
 
         Mcp toSave;
         if (previousMcp == null) {
-            toSave = new Mcp(mcp.tenantId(), mcp.id(), mcp.namespace(), mcp.flowId(),
+            toSave = new Mcp(mcp.tenantId(), mcp.id(), mcp.namespace(),
                 mcp.title(), mcp.description(), mcp.enabled(), mcp.deleted(),
                 Instant.now(), Instant.now());
         } else {
-            toSave = new Mcp(mcp.tenantId(), mcp.id(), mcp.namespace(), mcp.flowId(),
+            toSave = new Mcp(mcp.tenantId(), mcp.id(), mcp.namespace(),
                 mcp.title(), mcp.description(), mcp.enabled(), mcp.deleted(),
                 previousMcp.created(), Instant.now());
         }
