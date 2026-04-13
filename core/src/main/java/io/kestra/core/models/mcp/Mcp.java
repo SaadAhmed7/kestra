@@ -4,6 +4,7 @@ import java.time.Instant;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 import io.kestra.core.models.HasUID;
 import io.kestra.core.models.SoftDeletable;
@@ -46,6 +47,7 @@ public record Mcp(
 
     String iconUrl,
 
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     boolean isDefault,
 
     @Hidden
@@ -57,6 +59,9 @@ public record Mcp(
     @Hidden
     Instant updated
 ) implements HasUID, SoftDeletable<Mcp> {
+
+    /** The well-known name of the default MCP server, auto-provisioned per tenant. */
+    public static final String DEFAULT_NAME = "default";
 
     /**
      * Controls the visibility of the MCP server.
@@ -100,7 +105,7 @@ public record Mcp(
         if (authType == null) {
             authType = AuthType.BASIC;
         }
-        isDefault = "default".equals(name);
+        isDefault = DEFAULT_NAME.equals(name);
     }
 
     /** {@inheritDoc} */

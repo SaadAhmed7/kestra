@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
 import io.kestra.core.models.mcp.Mcp;
+import io.kestra.core.services.McpService;
 import io.kestra.core.utils.IdUtils;
 import io.kestra.core.utils.TestsUtils;
 
@@ -21,6 +22,9 @@ public abstract class AbstractMcpRepositoryTest {
 
     @Inject
     private McpRepositoryInterface mcpRepository;
+
+    @Inject
+    private McpService mcpService;
 
     @Test
     void givenNewMcpWhenSaveThenPersistedWithTimestamps() {
@@ -168,6 +172,39 @@ public abstract class AbstractMcpRepositoryTest {
         // When / Then
         assertThat(mcpRepository.list(Pageable.from(1, 10), tenant1).size()).isEqualTo(1);
         assertThat(mcpRepository.list(Pageable.from(1, 10), tenant2).size()).isEqualTo(1);
+    }
+
+    @Test
+    void givenNoDefaultServer_whenEnsureDefault_thenDefaultServerCreated() {
+        // Given
+        String tenant = TestsUtils.randomTenant(this.getClass().getSimpleName());
+
+        // When
+        mcpService.ensureDefaultMcpServer(tenant);
+
+        // Then
+        String defaultId = IdUtils.fromParts(Mcp.DEFAULT_NAME, tenant);
+        Optional<Mcp> found = mcpRepository.get(tenant, defaultId);
+        assertThat(found).isPresent();
+        assertThat(found.get().name()).isEqualTo(Mcp.DEFAULT_NAME);
+        assertThat(found.get().isDefault()).isTrue();
+        assertThat(found.get().enabled()).isTrue();
+        assertThat(found.get().created()).isNotNull();
+    }
+
+    @Test
+    void givenExistingDefaultServer_whenEnsureDefault_thenIdempotent() {
+        // Given
+        String tenant = TestsUtils.randomTenant(this.getClass().getSimpleName());
+        mcpService.ensureDefaultMcpServer(tenant);
+
+        // When — call again
+        mcpService.ensureDefaultMcpServer(tenant);
+
+        // Then — exactly one default server, no duplicate
+        ArrayListTotal<Mcp> results = mcpRepository.list(Pageable.from(1, 100), tenant);
+        long defaultCount = results.stream().filter(Mcp::isDefault).count();
+        assertThat(defaultCount).isEqualTo(1);
     }
 
     private static Mcp createMcp(String tenantId) {

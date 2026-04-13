@@ -7,6 +7,8 @@ import org.junit.jupiter.api.Test;
 
 import io.kestra.core.junit.annotations.KestraTest;
 import io.kestra.core.models.mcp.Mcp;
+import io.kestra.core.services.McpService;
+import io.kestra.core.tenant.TenantService;
 import io.kestra.core.utils.IdUtils;
 import io.kestra.webserver.responses.PagedResults;
 
@@ -29,6 +31,9 @@ class McpControllerTest {
     @Inject
     @Client("/")
     ReactorHttpClient client;
+
+    @Inject
+    McpService mcpService;
 
     @Test
     void givenValidMcp_whenCreate_thenMcpIsCreated() {
@@ -190,6 +195,78 @@ class McpControllerTest {
         HttpClientResponseException e = Assertions.assertThrows(
             HttpClientResponseException.class,
             () -> client.toBlocking().exchange(DELETE(MCP_PATH + "/" + nonExistentId))
+        );
+        assertThat(e.getStatus().getCode()).isEqualTo(HttpStatus.NOT_FOUND.getCode());
+    }
+
+    @Test
+    void givenReservedName_whenCreate_thenValidationErrorReturned() {
+        // Given
+        Mcp mcp = new Mcp(null, null, "io.kestra.test.mcp", Mcp.DEFAULT_NAME,
+            "A description", null, null, null, true, null, false, false, null, null);
+
+        // When / Then
+        HttpClientResponseException e = Assertions.assertThrows(
+            HttpClientResponseException.class,
+            () -> client.toBlocking().retrieve(POST(MCP_PATH, mcp), Mcp.class)
+        );
+        assertThat(e.getStatus().getCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY.getCode());
+    }
+
+    @Test
+    void givenExistingMcp_whenUpdateWithReservedName_thenValidationErrorReturned() {
+        // Given
+        Mcp mcp = buildMcp(IdUtils.create());
+        Mcp created = client.toBlocking().retrieve(POST(MCP_PATH, mcp), Mcp.class);
+        Mcp renamed = new Mcp(null, created.id(), created.namespace(), Mcp.DEFAULT_NAME,
+            created.description(), null, null, null, true, null, false, false, null, null);
+
+        // When / Then
+        HttpClientResponseException e = Assertions.assertThrows(
+            HttpClientResponseException.class,
+            () -> client.toBlocking().retrieve(PUT(MCP_PATH + "/" + created.id(), renamed), Mcp.class)
+        );
+        assertThat(e.getStatus().getCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY.getCode());
+    }
+
+    @Test
+    void givenDefaultMcp_whenDelete_thenForbiddenReturned() {
+        // Given — provision via the service; the API blocks creating "default" directly
+        mcpService.ensureDefaultMcpServer(TenantService.MAIN_TENANT);
+        String defaultId = IdUtils.fromParts(Mcp.DEFAULT_NAME, TenantService.MAIN_TENANT);
+
+        // When / Then
+        HttpClientResponseException e = Assertions.assertThrows(
+            HttpClientResponseException.class,
+            () -> client.toBlocking().exchange(DELETE(MCP_PATH + "/" + defaultId))
+        );
+        assertThat(e.getStatus().getCode()).isEqualTo(HttpStatus.FORBIDDEN.getCode());
+    }
+
+    @Test
+    void givenExistingMcp_whenToggle_thenEnabledStateFlipped() {
+        // Given
+        Mcp mcp = buildMcp(IdUtils.create());
+        Mcp created = client.toBlocking().retrieve(POST(MCP_PATH, mcp), Mcp.class);
+        assertThat(created.enabled()).isTrue();
+
+        // When
+        Mcp toggled = client.toBlocking().retrieve(
+            PATCH(MCP_PATH + "/" + created.id() + "/toggle", ""), Mcp.class);
+
+        // Then
+        assertThat(toggled.enabled()).isFalse();
+    }
+
+    @Test
+    void givenNonExistingMcp_whenToggle_thenNotFoundReturned() {
+        // Given
+        String nonExistentId = IdUtils.create();
+
+        // When / Then
+        HttpClientResponseException e = Assertions.assertThrows(
+            HttpClientResponseException.class,
+            () -> client.toBlocking().retrieve(PATCH(MCP_PATH + "/" + nonExistentId + "/toggle", ""), Mcp.class)
         );
         assertThat(e.getStatus().getCode()).isEqualTo(HttpStatus.NOT_FOUND.getCode());
     }

@@ -3,8 +3,10 @@ package io.kestra.cli.services;
 import io.kestra.cli.AbstractCommand;
 import io.kestra.cli.commands.servers.ServerCommandInterface;
 import io.kestra.cli.commands.servers.WorkerCommand;
+import io.kestra.core.services.McpService;
 import io.kestra.core.repositories.SettingRepositoryInterface;
 import io.kestra.core.services.VersionService;
+import io.kestra.core.tenant.TenantService;
 import io.kestra.core.utils.EditionProvider;
 
 import io.micronaut.context.ApplicationContext;
@@ -20,12 +22,18 @@ public class DefaultStartupHook implements StartupHookInterface {
     public void start(AbstractCommand cmd) {
         if (cmd instanceof ServerCommandInterface && !(cmd instanceof WorkerCommand)) {
             saveKestraVersion();
+            ensureDefaultMcpServer();
             saveKestraEdition();
         }
     }
 
     private void saveKestraVersion() {
         applicationContext.findBean(VersionService.class).ifPresent(VersionService::maybeSaveOrUpdateInstanceVersion);
+    }
+
+    private void ensureDefaultMcpServer() {
+        applicationContext.findBean(McpService.class)
+            .ifPresent(svc -> svc.ensureDefaultMcpServer(TenantService.MAIN_TENANT));
     }
 
     private void saveKestraEdition() {

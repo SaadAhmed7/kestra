@@ -15,6 +15,7 @@ import io.micronaut.core.annotation.Nullable;
 import io.micronaut.http.HttpResponse;
 import io.micronaut.http.HttpStatus;
 import io.micronaut.http.annotation.*;
+import io.micronaut.http.exceptions.HttpStatusException;
 import io.micronaut.scheduling.TaskExecutors;
 import io.micronaut.scheduling.annotation.ExecuteOn;
 import io.swagger.v3.oas.annotations.Operation;
@@ -60,6 +61,13 @@ public class McpController {
     public HttpResponse<Mcp> createMcp(
         @RequestBody(description = "The MCP server to create") @Body @Valid Mcp mcp) {
         String tenantId = tenantService.resolveTenant();
+
+        if (Mcp.DEFAULT_NAME.equals(mcp.name())) {
+            throw ManualConstraintViolation.toConstraintViolationException(
+                "MCP name '" + Mcp.DEFAULT_NAME + "' is reserved",
+                mcp, Mcp.class, "mcp.name", mcp.name()
+            );
+        }
 
         if (mcpRepository.get(tenantId, mcp.id()).isPresent()) {
             throw new ConstraintViolationException(
@@ -108,6 +116,13 @@ public class McpController {
             return HttpResponse.status(HttpStatus.NOT_FOUND);
         }
 
+        if (Mcp.DEFAULT_NAME.equals(mcp.name()) != existing.get().isDefault()) {
+            throw ManualConstraintViolation.toConstraintViolationException(
+                "MCP name '" + Mcp.DEFAULT_NAME + "' is reserved",
+                mcp, Mcp.class, "mcp.name", mcp.name()
+            );
+        }
+
         Mcp toSave = new Mcp(tenantId, mcp.id(), mcp.namespace(),
             mcp.name(), mcp.description(), mcp.systemPrompt(), mcp.serverType(), mcp.authType(),
             mcp.enabled(), mcp.iconUrl(), false, false, null, null);
@@ -120,8 +135,33 @@ public class McpController {
     @Operation(tags = {"Mcp"}, summary = "Delete an MCP server")
     public HttpResponse<Void> deleteMcp(
         @Parameter(description = "The MCP server id") @PathVariable String id) {
-        return mcpRepository.delete(tenantService.resolveTenant(), id)
+        String tenantId = tenantService.resolveTenant();
+        Optional<Mcp> existing = mcpRepository.get(tenantId, id);
+        if (existing.isEmpty()) {
+            return HttpResponse.status(HttpStatus.NOT_FOUND);
+        }
+        if (existing.get().isDefault()) {
+            throw new HttpStatusException(HttpStatus.FORBIDDEN, "The default MCP server cannot be deleted");
+        }
+        return mcpRepository.delete(tenantId, id)
             .map(ignored -> HttpResponse.<Void>status(HttpStatus.NO_CONTENT))
             .orElse(HttpResponse.status(HttpStatus.NOT_FOUND));
+    }
+
+    @ExecuteOn(TaskExecutors.IO)
+    @Patch(uri = "{id}/toggle")
+    @Operation(tags = {"Mcp"}, summary = "Toggle an MCP server's enabled state")
+    public HttpResponse<Mcp> toggleMcp(
+        @Parameter(description = "The MCP server id") @PathVariable String id) {
+        String tenantId = tenantService.resolveTenant();
+        Optional<Mcp> existing = mcpRepository.get(tenantId, id);
+        if (existing.isEmpty()) {
+            return HttpResponse.status(HttpStatus.NOT_FOUND);
+        }
+        Mcp mcp = existing.get();
+        Mcp toggled = new Mcp(tenantId, mcp.id(), mcp.namespace(),
+            mcp.name(), mcp.description(), mcp.systemPrompt(), mcp.serverType(), mcp.authType(),
+            !mcp.enabled(), mcp.iconUrl(), false, false, null, null);
+        return HttpResponse.ok(mcpRepository.save(mcp, toggled));
     }
 }
