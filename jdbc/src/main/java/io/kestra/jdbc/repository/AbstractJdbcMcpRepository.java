@@ -44,6 +44,22 @@ public abstract class AbstractJdbcMcpRepository extends AbstractJdbcCrudReposito
     }
 
     @Override
+    public Optional<Mcp> findByName(String tenantId, String name) {
+        return jdbcRepository
+            .getDslContextWrapper()
+            .transactionResult(configuration -> {
+                DSLContext context = DSL.using(configuration);
+                Record record = context
+                    .select(VALUE_FIELD)
+                    .from(jdbcRepository.getTable())
+                    .where(this.defaultFilter(tenantId))
+                    .and(field("name", String.class).eq(name))
+                    .fetchAny();
+                return record == null ? Optional.empty() : Optional.of(jdbcRepository.map(record));
+            });
+    }
+
+    @Override
     public ArrayListTotal<Mcp> list(Pageable pageable, String tenantId) {
         return findPage(pageable, tenantId, DSL.noCondition());
     }

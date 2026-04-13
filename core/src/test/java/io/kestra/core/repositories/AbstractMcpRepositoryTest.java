@@ -175,6 +175,61 @@ public abstract class AbstractMcpRepositoryTest {
     }
 
     @Test
+    void givenExistingMcpWhenFindByNameThenReturned() {
+        // Given
+        String tenant = TestsUtils.randomTenant(this.getClass().getSimpleName());
+        Mcp saved = mcpRepository.save(null, createMcp(tenant));
+
+        // When
+        Optional<Mcp> found = mcpRepository.findByName(tenant, saved.name());
+
+        // Then
+        assertThat(found).isPresent();
+        assertThat(found.get().id()).isEqualTo(saved.id());
+        assertThat(found.get().name()).isEqualTo(saved.name());
+    }
+
+    @Test
+    void givenUnknownNameWhenFindByNameThenEmpty() {
+        // Given
+        String tenant = TestsUtils.randomTenant(this.getClass().getSimpleName());
+
+        // When
+        Optional<Mcp> found = mcpRepository.findByName(tenant, "non-existent-name");
+
+        // Then
+        assertThat(found).isEmpty();
+    }
+
+    @Test
+    void givenMcpFromOtherTenantWhenFindByNameThenEmpty() {
+        // Given
+        String tenant1 = TestsUtils.randomTenant(this.getClass().getSimpleName());
+        String tenant2 = TestsUtils.randomTenant(this.getClass().getSimpleName());
+        Mcp saved = mcpRepository.save(null, createMcp(tenant1));
+
+        // When
+        Optional<Mcp> found = mcpRepository.findByName(tenant2, saved.name());
+
+        // Then
+        assertThat(found).isEmpty();
+    }
+
+    @Test
+    void givenDeletedMcpWhenFindByNameThenEmpty() {
+        // Given
+        String tenant = TestsUtils.randomTenant(this.getClass().getSimpleName());
+        Mcp saved = mcpRepository.save(null, createMcp(tenant));
+        mcpRepository.delete(tenant, saved.id());
+
+        // When
+        Optional<Mcp> found = mcpRepository.findByName(tenant, saved.name());
+
+        // Then
+        assertThat(found).isEmpty();
+    }
+
+    @Test
     void givenNoDefaultServer_whenEnsureDefault_thenDefaultServerCreated() {
         // Given
         String tenant = TestsUtils.randomTenant(this.getClass().getSimpleName());

@@ -1,5 +1,6 @@
 package io.kestra.mcp;
 
+import io.kestra.core.repositories.McpRepositoryInterface;
 import io.micronaut.http.HttpRequest;
 import io.modelcontextprotocol.server.McpServer;
 import io.modelcontextprotocol.spec.McpSchema;
@@ -18,6 +19,9 @@ public class McpServerHandlerTransport {
 
     @Inject
     McpToolService mcpToolService;
+
+    @Inject
+    McpRepositoryInterface mcpRepository;
 
     @Inject
     SessionProxyRepository sessionProxyRepository;
@@ -46,6 +50,14 @@ public class McpServerHandlerTransport {
                     .tools(true)
                     .build()
             );
+
+        mcpRepository.findByName(handlerKey.tenantId(), handlerKey.serverId())
+            .ifPresent(mcp -> {
+                mcpServerSpec.serverInfo(mcp.name(), "1.0.0");
+                if (mcp.systemPrompt() != null) {
+                    mcpServerSpec.instructions(mcp.systemPrompt());
+                }
+            });
 
         mcpServerSpec.tools(this.mcpToolService.listToolSpecsForServer(
             handlerKey.tenantId(),

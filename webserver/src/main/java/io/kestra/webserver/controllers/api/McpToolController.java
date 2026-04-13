@@ -1,7 +1,10 @@
 package io.kestra.webserver.controllers.api;
 
+import io.kestra.core.models.mcp.Mcp;
+import io.kestra.core.repositories.McpRepositoryInterface;
 import io.micronaut.http.HttpRequest;
 import io.micronaut.http.HttpResponse;
+import io.micronaut.http.HttpStatus;
 import io.micronaut.http.MediaType;
 import io.kestra.core.tenant.TenantService;
 import io.micronaut.http.annotation.*;
@@ -30,6 +33,9 @@ public class McpToolController {
     @Inject
     McpSessionFactory sessionFactory;
 
+    @Inject
+    McpRepositoryInterface mcpRepository;
+
     @Get("/{namespace}/{server}")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces({MediaType.TEXT_EVENT_STREAM})
@@ -53,6 +59,14 @@ public class McpToolController {
         HttpRequest<String> request) {
 
         String tenantId = tenantService.resolveTenant();
+
+        Optional<Mcp> mcpServer = mcpRepository.findByName(tenantId, server);
+        if (mcpServer.isEmpty()) {
+            return Mono.just(HttpResponse.notFound());
+        }
+        if (!mcpServer.get().enabled()) {
+            return Mono.just(HttpResponse.status(HttpStatus.SERVICE_UNAVAILABLE));
+        }
 
         var transportContext = sessionFactory.build(
             tenantId, namespace, server, request.getHeaders().get(HttpHeaders.MCP_SESSION_ID)

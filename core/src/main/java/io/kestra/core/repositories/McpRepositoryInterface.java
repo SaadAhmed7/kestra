@@ -9,6 +9,8 @@ public interface McpRepositoryInterface {
 
     Optional<Mcp> get(String tenantId, String id);
 
+    Optional<Mcp> findByName(String tenantId, String name);
+
     ArrayListTotal<Mcp> list(Pageable pageable, String tenantId);
 
     Mcp save(Mcp previousMcp, Mcp mcp);
