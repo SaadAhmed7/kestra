@@ -42,7 +42,7 @@ class McpControllerTest {
         assertThat(created).isNotNull();
         assertThat(created.id()).isEqualTo(mcp.id());
         assertThat(created.namespace()).isEqualTo(mcp.namespace());
-        assertThat(created.title()).isEqualTo(mcp.title());
+        assertThat(created.name()).isEqualTo(mcp.name());
         assertThat(created.enabled()).isTrue();
     }
 
@@ -62,8 +62,8 @@ class McpControllerTest {
 
     @Test
     void givenMcpWithMissingRequiredFields_whenCreate_thenValidationErrorReturned() {
-        // Given — null title and namespace violate @NotBlank/@NotNull
-        Mcp mcp = new Mcp(null, IdUtils.create(), null, null, null, true, false, null, null);
+        // Given — null name and namespace violate @NotBlank/@NotNull
+        Mcp mcp = new Mcp(null, IdUtils.create(), null, null, null, null, null, null, true, null, false, false, null, null);
 
         // When / Then
         HttpClientResponseException e = Assertions.assertThrows(
@@ -85,7 +85,7 @@ class McpControllerTest {
         // Then
         assertThat(retrieved).isNotNull();
         assertThat(retrieved.id()).isEqualTo(mcp.id());
-        assertThat(retrieved.title()).isEqualTo(mcp.title());
+        assertThat(retrieved.name()).isEqualTo(mcp.name());
     }
 
     @Test
@@ -128,14 +128,14 @@ class McpControllerTest {
         // Given
         Mcp mcp = buildMcp(IdUtils.create());
         client.toBlocking().retrieve(POST(MCP_PATH, mcp), Mcp.class);
-        Mcp updated = new Mcp(null, mcp.id(), mcp.namespace(), "Updated Title", mcp.description(), false, false, null, null);
+        Mcp updated = new Mcp(null, mcp.id(), mcp.namespace(), "Updated Name", mcp.description(), null, null, null, false, null, false, false, null, null);
 
         // When
         Mcp result = client.toBlocking().retrieve(PUT(MCP_PATH + "/" + mcp.id(), updated), Mcp.class);
 
         // Then
         assertThat(result).isNotNull();
-        assertThat(result.title()).isEqualTo("Updated Title");
+        assertThat(result.name()).isEqualTo("Updated Name");
         assertThat(result.enabled()).isFalse();
     }
 
@@ -195,6 +195,6 @@ class McpControllerTest {
     }
 
     private static Mcp buildMcp(String id) {
-        return new Mcp(null, id, "io.kestra.test.mcp", "Test MCP Server", "A test description", true, false, null, null);
+        return new Mcp(null, id, "io.kestra.test.mcp", "Test MCP Server", "A test description", null, null, null, true, null, false, false, null, null);
     }
 }

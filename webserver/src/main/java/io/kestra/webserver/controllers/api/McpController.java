@@ -76,7 +76,8 @@ public class McpController {
         }
 
         Mcp toSave = new Mcp(tenantId, mcp.id(), mcp.namespace(),
-            mcp.title(), mcp.description(), mcp.enabled(), false, null, null);
+            mcp.name(), mcp.description(), mcp.systemPrompt(), mcp.serverType(), mcp.authType(),
+            mcp.enabled(), mcp.iconUrl(), false, false, null, null);
 
         return HttpResponse.ok(mcpRepository.save(null, toSave));
     }
@@ -108,7 +109,8 @@ public class McpController {
         }
 
         Mcp toSave = new Mcp(tenantId, mcp.id(), mcp.namespace(),
-            mcp.title(), mcp.description(), mcp.enabled(), false, null, null);
+            mcp.name(), mcp.description(), mcp.systemPrompt(), mcp.serverType(), mcp.authType(),
+            mcp.enabled(), mcp.iconUrl(), false, false, null, null);
 
         return HttpResponse.ok(mcpRepository.save(existing.get(), toSave));
     }

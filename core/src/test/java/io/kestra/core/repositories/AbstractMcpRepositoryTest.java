@@ -33,7 +33,7 @@ public abstract class AbstractMcpRepositoryTest {
 
         // Then
         assertThat(saved.id()).isEqualTo(mcp.id());
-        assertThat(saved.title()).isEqualTo(mcp.title());
+        assertThat(saved.name()).isEqualTo(mcp.name());
         assertThat(saved.namespace()).isEqualTo(mcp.namespace());
         assertThat(saved.enabled()).isTrue();
         assertThat(saved.deleted()).isFalse();
@@ -53,7 +53,7 @@ public abstract class AbstractMcpRepositoryTest {
         // Then
         assertThat(found).isPresent();
         assertThat(found.get().id()).isEqualTo(saved.id());
-        assertThat(found.get().title()).isEqualTo(saved.title());
+        assertThat(found.get().name()).isEqualTo(saved.name());
     }
 
     @Test
@@ -74,13 +74,13 @@ public abstract class AbstractMcpRepositoryTest {
         String tenant = TestsUtils.randomTenant(this.getClass().getSimpleName());
         Mcp original = mcpRepository.save(null, createMcp(tenant));
         Mcp updated = new Mcp(tenant, original.id(), original.namespace(),
-            "Updated Title", "Updated description", false, false, null, null);
+            "Updated Name", "Updated description", null, null, null, false, null, false, false, null, null);
 
         // When
         Mcp result = mcpRepository.save(original, updated);
 
         // Then
-        assertThat(result.title()).isEqualTo("Updated Title");
+        assertThat(result.name()).isEqualTo("Updated Name");
         assertThat(result.description()).isEqualTo("Updated description");
         assertThat(result.enabled()).isFalse();
         assertThat(result.created()).isEqualTo(original.created());
@@ -172,6 +172,6 @@ public abstract class AbstractMcpRepositoryTest {
 
     private static Mcp createMcp(String tenantId) {
         String id = IdUtils.create();
-        return new Mcp(tenantId, id, "io.kestra.test", "Test MCP " + id, "A test MCP server", true, false, null, null);
+        return new Mcp(tenantId, id, "io.kestra.test", "Test MCP " + id, "A test MCP server", null, null, null, true, null, false, false, null, null);
     }
 }
