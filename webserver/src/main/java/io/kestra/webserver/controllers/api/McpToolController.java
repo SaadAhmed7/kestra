@@ -48,8 +48,18 @@ public class McpToolController {
     }
 
 
-    @Post("/{namespace}/{server}")
     @Delete("/{namespace}/{server}")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces({MediaType.TEXT_EVENT_STREAM, MediaType.APPLICATION_JSON})
+    public Mono<? extends HttpResponse<?>> handleDeleteRequest(
+        @NotNull String tenant,
+        @NotNull String namespace,
+        @PathVariable String server,
+        HttpRequest<String> request) {
+        return handleRequest(tenant, namespace, server, request);
+    }
+
+    @Post("/{namespace}/{server}")
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces({MediaType.TEXT_EVENT_STREAM, MediaType.APPLICATION_JSON})
     public Mono<? extends HttpResponse<?>> handleRequest(
