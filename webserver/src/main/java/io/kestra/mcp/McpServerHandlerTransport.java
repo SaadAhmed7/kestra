@@ -1,6 +1,6 @@
 package io.kestra.mcp;
 
-import io.kestra.core.repositories.McpRepositoryInterface;
+import io.kestra.core.mcp.repositories.McpRepositoryInterface;
 import io.micronaut.http.HttpRequest;
 import io.modelcontextprotocol.server.McpServer;
 import io.modelcontextprotocol.spec.McpSchema;

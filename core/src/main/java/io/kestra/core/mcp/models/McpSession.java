@@ -1,4 +1,4 @@
-package io.kestra.core.models.mcp;
+package io.kestra.core.mcp.models;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.kestra.core.models.HasUID;

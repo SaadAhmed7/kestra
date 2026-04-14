@@ -6,8 +6,8 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import io.kestra.core.junit.annotations.KestraTest;
-import io.kestra.core.models.mcp.Mcp;
-import io.kestra.core.services.McpService;
+import io.kestra.core.mcp.models.Mcp;
+import io.kestra.core.mcp.services.McpService;
 import io.kestra.core.tenant.TenantService;
 import io.kestra.core.utils.IdUtils;
 import io.kestra.webserver.responses.PagedResults;

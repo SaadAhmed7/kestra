@@ -1,6 +1,6 @@
-package io.kestra.core.repositories;
+package io.kestra.core.mcp.repositories;
 
-import io.kestra.core.models.mcp.McpSession;
+import io.kestra.core.mcp.models.McpSession;
 
 import java.util.List;
 import java.util.Optional;

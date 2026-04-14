@@ -1,11 +1,11 @@
 package io.kestra.mcp;
 
 import io.kestra.core.junit.annotations.KestraTest;
-import io.kestra.core.models.mcp.McpSession;
-import io.kestra.core.models.mcp.McpSessionNotificationEvent;
+import io.kestra.core.mcp.models.McpSession;
+import io.kestra.core.mcp.models.McpSessionNotificationEvent;
 import io.kestra.core.queues.KeyedDispatchQueueInterface;
 import io.kestra.core.queues.QueueSubscriber;
-import io.kestra.core.repositories.McpSessionRepositoryInterface;
+import io.kestra.core.mcp.repositories.McpSessionRepositoryInterface;
 import io.kestra.core.server.ServerInstance;
 import io.micronaut.http.*;
 import io.modelcontextprotocol.json.McpJsonMapper;

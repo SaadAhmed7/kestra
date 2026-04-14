@@ -1,8 +1,9 @@
-package io.kestra.core.repositories;
+package io.kestra.core.mcp.repositories;
 
 import java.util.Optional;
 
-import io.kestra.core.models.mcp.Mcp;
+import io.kestra.core.mcp.models.Mcp;
+import io.kestra.core.repositories.ArrayListTotal;
 import io.micronaut.data.model.Pageable;
 
 public interface McpRepositoryInterface {

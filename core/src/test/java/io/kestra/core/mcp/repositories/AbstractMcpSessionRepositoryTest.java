@@ -1,4 +1,4 @@
-package io.kestra.core.repositories;
+package io.kestra.core.mcp.repositories;
 
 import java.util.List;
 import java.util.Optional;
@@ -6,7 +6,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
-import io.kestra.core.models.mcp.McpSession;
+import io.kestra.core.mcp.models.McpSession;
 import io.kestra.core.utils.IdUtils;
 import io.kestra.core.utils.TestsUtils;
 

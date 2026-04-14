@@ -3,7 +3,7 @@ package io.kestra.cli.services;
 import io.kestra.cli.AbstractCommand;
 import io.kestra.cli.commands.servers.ServerCommandInterface;
 import io.kestra.cli.commands.servers.WorkerCommand;
-import io.kestra.core.services.McpService;
+import io.kestra.core.mcp.services.McpService;
 import io.kestra.core.repositories.SettingRepositoryInterface;
 import io.kestra.core.services.VersionService;
 import io.kestra.core.tenant.TenantService;

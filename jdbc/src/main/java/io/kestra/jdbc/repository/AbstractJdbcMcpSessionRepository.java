@@ -8,8 +8,8 @@ import org.jooq.DSLContext;
 import org.jooq.Record;
 import org.jooq.impl.DSL;
 
-import io.kestra.core.models.mcp.McpSession;
-import io.kestra.core.repositories.McpSessionRepositoryInterface;
+import io.kestra.core.mcp.models.McpSession;
+import io.kestra.core.mcp.repositories.McpSessionRepositoryInterface;
 
 import lombok.extern.slf4j.Slf4j;
 

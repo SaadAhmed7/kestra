@@ -11,7 +11,7 @@ import io.kestra.core.runners.*;
 import io.kestra.core.runners.MultipleConditionEvent;
 import io.kestra.core.runners.SubflowExecutionEnd;
 import io.kestra.core.runners.SubflowExecutionResult;
-import io.kestra.core.models.mcp.McpSessionNotificationEvent;
+import io.kestra.core.mcp.models.McpSessionNotificationEvent;
 import io.kestra.core.runners.WorkerJobEvent;
 import io.kestra.core.scheduler.events.SchedulerEvent;
 import io.kestra.core.scheduler.events.TriggerEvent;

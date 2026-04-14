@@ -1,7 +1,7 @@
 package io.kestra.repository.postgres;
 
 import io.kestra.core.events.CrudEvent;
-import io.kestra.core.models.mcp.Mcp;
+import io.kestra.core.mcp.models.Mcp;
 import io.kestra.core.repositories.RepositoryBean;
 import io.kestra.jdbc.repository.AbstractJdbcMcpRepository;
 

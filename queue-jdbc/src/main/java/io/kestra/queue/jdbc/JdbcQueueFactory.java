@@ -2,7 +2,7 @@ package io.kestra.queue.jdbc;
 
 import io.kestra.core.executor.command.ExecutionCommand;
 import io.kestra.core.models.executions.Execution;
-import io.kestra.core.models.mcp.McpSessionNotificationEvent;
+import io.kestra.core.mcp.models.McpSessionNotificationEvent;
 import io.kestra.core.models.executions.ExecutionKilled;
 import io.kestra.core.models.executions.LogEntry;
 import io.kestra.core.models.executions.MetricEntry;

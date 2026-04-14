@@ -33,7 +33,8 @@ dependencies {
     implementation('org.bouncycastle:bcpkix-jdk18on')
 
     // mcp
-    implementation project(':mcp-server')
+    api 'io.modelcontextprotocol.sdk:mcp'
+    implementation 'com.github.ben-manes.caffeine:caffeine'
 
     implementation("de.siegmar:fastcsv")
 

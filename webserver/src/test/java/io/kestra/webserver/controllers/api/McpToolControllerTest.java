@@ -2,10 +2,10 @@ package io.kestra.webserver.controllers.api;
 
 import io.kestra.core.models.flows.Flow;
 import io.kestra.core.models.flows.GenericFlow;
-import io.kestra.core.models.mcp.Mcp;
+import io.kestra.core.mcp.models.Mcp;
 import io.kestra.core.models.property.Property;
 import io.kestra.core.repositories.FlowRepositoryInterface;
-import io.kestra.core.repositories.McpRepositoryInterface;
+import io.kestra.core.mcp.repositories.McpRepositoryInterface;
 import io.kestra.core.tenant.TenantService;
 import io.kestra.core.utils.IdUtils;
 import io.kestra.core.junit.annotations.KestraTest;

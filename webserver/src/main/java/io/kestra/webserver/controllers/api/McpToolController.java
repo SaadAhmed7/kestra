@@ -1,7 +1,7 @@
 package io.kestra.webserver.controllers.api;
 
-import io.kestra.core.models.mcp.Mcp;
-import io.kestra.core.repositories.McpRepositoryInterface;
+import io.kestra.core.mcp.models.Mcp;
+import io.kestra.core.mcp.repositories.McpRepositoryInterface;
 import io.micronaut.http.HttpRequest;
 import io.micronaut.http.HttpResponse;
 import io.micronaut.http.HttpStatus;
@@ -12,12 +12,9 @@ import io.modelcontextprotocol.spec.HttpHeaders;
 import io.kestra.mcp.McpServerHandlerTransport;
 import jakarta.inject.Inject;
 import jakarta.validation.constraints.NotNull;
-import io.kestra.core.models.mcp.McpSession;
 import io.kestra.mcp.McpSessionFactory;
 import lombok.extern.slf4j.Slf4j;
 import reactor.core.publisher.Mono;
-import io.kestra.mcp.KestraMcpTransportContext;
-import io.kestra.core.repositories.McpSessionRepositoryInterface;
 
 import java.util.Optional;
 

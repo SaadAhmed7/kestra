@@ -8,9 +8,9 @@ import org.jooq.Record;
 import org.jooq.impl.DSL;
 
 import io.kestra.core.events.CrudEvent;
-import io.kestra.core.models.mcp.Mcp;
+import io.kestra.core.mcp.models.Mcp;
 import io.kestra.core.repositories.ArrayListTotal;
-import io.kestra.core.repositories.McpRepositoryInterface;
+import io.kestra.core.mcp.repositories.McpRepositoryInterface;
 
 import io.micronaut.context.event.ApplicationEventPublisher;
 import io.micronaut.data.model.Pageable;

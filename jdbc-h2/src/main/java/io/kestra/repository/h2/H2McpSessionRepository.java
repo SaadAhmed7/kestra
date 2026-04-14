@@ -1,6 +1,6 @@
 package io.kestra.repository.h2;
 
-import io.kestra.core.models.mcp.McpSession;
+import io.kestra.core.mcp.models.McpSession;
 import io.kestra.core.repositories.RepositoryBean;
 import io.kestra.jdbc.repository.AbstractJdbcMcpSessionRepository;
 

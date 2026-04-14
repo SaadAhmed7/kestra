@@ -1,18 +1,20 @@
-package io.kestra.core.repositories;
+package io.kestra.core.mcp.repositories;
 
 import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 
-import io.kestra.core.models.mcp.Mcp;
-import io.kestra.core.services.McpService;
+import io.kestra.core.mcp.models.Mcp;
+import io.kestra.core.mcp.services.McpService;
 import io.kestra.core.utils.IdUtils;
 import io.kestra.core.utils.TestsUtils;
 
 import io.micronaut.data.model.Pageable;
 import io.micronaut.test.extensions.junit5.annotation.MicronautTest;
 import jakarta.inject.Inject;
+
+import io.kestra.core.repositories.ArrayListTotal;
 
 import static org.assertj.core.api.Assertions.assertThat;
 

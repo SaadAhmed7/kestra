@@ -4,9 +4,9 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
-import io.kestra.core.models.mcp.Mcp;
+import io.kestra.core.mcp.models.Mcp;
 import io.kestra.core.models.validations.ManualConstraintViolation;
-import io.kestra.core.repositories.McpRepositoryInterface;
+import io.kestra.core.mcp.repositories.McpRepositoryInterface;
 import io.kestra.core.tenant.TenantService;
 import io.kestra.webserver.responses.PagedResults;
 import io.kestra.webserver.utils.PageableUtils;

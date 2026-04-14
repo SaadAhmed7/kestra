@@ -1,7 +1,7 @@
 package io.kestra.mcp;
 
 
-import io.kestra.core.models.mcp.McpSessionNotificationEvent;
+import io.kestra.core.mcp.models.McpSessionNotificationEvent;
 import io.modelcontextprotocol.spec.McpSchema;
 import lombok.AllArgsConstructor;
 import lombok.Data;

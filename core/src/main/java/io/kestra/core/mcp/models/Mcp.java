@@ -1,4 +1,4 @@
-package io.kestra.core.models.mcp;
+package io.kestra.core.mcp.models;
 
 import java.time.Instant;
 

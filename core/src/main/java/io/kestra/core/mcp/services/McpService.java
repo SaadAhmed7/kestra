@@ -1,8 +1,8 @@
-package io.kestra.core.services;
+package io.kestra.core.mcp.services;
 
 import io.kestra.core.contexts.KestraConfig;
-import io.kestra.core.models.mcp.Mcp;
-import io.kestra.core.repositories.McpRepositoryInterface;
+import io.kestra.core.mcp.models.Mcp;
+import io.kestra.core.mcp.repositories.McpRepositoryInterface;
 import io.kestra.core.utils.IdUtils;
 
 import jakarta.inject.Inject;
