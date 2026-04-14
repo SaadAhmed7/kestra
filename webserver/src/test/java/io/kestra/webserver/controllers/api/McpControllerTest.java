@@ -10,6 +10,7 @@ import io.kestra.core.mcp.models.Mcp;
 import io.kestra.core.mcp.services.McpService;
 import io.kestra.core.tenant.TenantService;
 import io.kestra.core.utils.IdUtils;
+import io.kestra.webserver.models.api.ApiMcp;
 import io.kestra.webserver.responses.PagedResults;
 
 import io.micronaut.core.type.Argument;
@@ -38,42 +39,43 @@ class McpControllerTest {
     @Test
     void givenValidMcp_whenCreate_thenMcpIsCreated() {
         // Given
-        Mcp mcp = buildMcp(IdUtils.create());
+        ApiMcp mcp = buildMcp(IdUtils.create());
 
         // When
-        Mcp created = client.toBlocking().retrieve(POST(MCP_PATH, mcp), Mcp.class);
+        ApiMcp created = client.toBlocking().retrieve(POST(MCP_PATH, mcp), ApiMcp.class);
 
         // Then
         assertThat(created).isNotNull();
-        assertThat(created.id()).isEqualTo(mcp.id());
+        assertThat(created.id()).isNotBlank();
         assertThat(created.namespace()).isEqualTo(mcp.namespace());
         assertThat(created.name()).isEqualTo(mcp.name());
         assertThat(created.enabled()).isTrue();
+        assertThat(created.created()).isNotNull();
     }
 
     @Test
-    void givenMcpAlreadyExists_whenCreateWithSameId_thenValidationErrorReturned() {
+    void givenMcpAlreadyExists_whenCreateWithSameName_thenConflictReturned() {
         // Given
-        Mcp mcp = buildMcp(IdUtils.create());
-        client.toBlocking().retrieve(POST(MCP_PATH, mcp), Mcp.class);
+        ApiMcp mcp = buildMcp(IdUtils.create());
+        client.toBlocking().retrieve(POST(MCP_PATH, mcp), ApiMcp.class);
 
-        // When / Then
+        // When / Then — same name → same derived id → conflict
         HttpClientResponseException e = Assertions.assertThrows(
             HttpClientResponseException.class,
-            () -> client.toBlocking().retrieve(POST(MCP_PATH, mcp), Mcp.class)
+            () -> client.toBlocking().retrieve(POST(MCP_PATH, mcp), ApiMcp.class)
         );
-        assertThat(e.getStatus().getCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY.getCode());
+        assertThat(e.getStatus().getCode()).isEqualTo(HttpStatus.CONFLICT.getCode());
     }
 
     @Test
     void givenMcpWithMissingRequiredFields_whenCreate_thenValidationErrorReturned() {
         // Given — null name and namespace violate @NotBlank/@NotNull
-        Mcp mcp = new Mcp(null, IdUtils.create(), null, null, null, null, null, null, true, null, false, false, null, null);
+        ApiMcp mcp = new ApiMcp(null, null, null, null, null, null, null, true, null, false, null, null);
 
         // When / Then
         HttpClientResponseException e = Assertions.assertThrows(
             HttpClientResponseException.class,
-            () -> client.toBlocking().retrieve(POST(MCP_PATH, mcp), Mcp.class)
+            () -> client.toBlocking().retrieve(POST(MCP_PATH, mcp), ApiMcp.class)
         );
         assertThat(e.getStatus().getCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY.getCode());
     }
@@ -81,15 +83,15 @@ class McpControllerTest {
     @Test
     void givenExistingMcp_whenGet_thenMcpIsReturned() {
         // Given
-        Mcp mcp = buildMcp(IdUtils.create());
-        client.toBlocking().retrieve(POST(MCP_PATH, mcp), Mcp.class);
+        ApiMcp mcp = buildMcp(IdUtils.create());
+        ApiMcp created = client.toBlocking().retrieve(POST(MCP_PATH, mcp), ApiMcp.class);
 
         // When
-        Mcp retrieved = client.toBlocking().retrieve(GET(MCP_PATH + "/" + mcp.id()), Mcp.class);
+        ApiMcp retrieved = client.toBlocking().retrieve(GET(MCP_PATH + "/" + created.id()), ApiMcp.class);
 
         // Then
         assertThat(retrieved).isNotNull();
-        assertThat(retrieved.id()).isEqualTo(mcp.id());
+        assertThat(retrieved.id()).isEqualTo(created.id());
         assertThat(retrieved.name()).isEqualTo(mcp.name());
     }
 
@@ -101,7 +103,7 @@ class McpControllerTest {
         // When / Then
         HttpClientResponseException e = Assertions.assertThrows(
             HttpClientResponseException.class,
-            () -> client.toBlocking().exchange(GET(MCP_PATH + "/" + nonExistentId), Mcp.class)
+            () -> client.toBlocking().exchange(GET(MCP_PATH + "/" + nonExistentId), ApiMcp.class)
         );
         assertThat(e.getStatus().getCode()).isEqualTo(HttpStatus.NOT_FOUND.getCode());
     }
@@ -110,33 +112,34 @@ class McpControllerTest {
     @SuppressWarnings("unchecked")
     void givenMultipleMcps_whenList_thenPagedResultsReturned() {
         // Given
-        Mcp mcpOne = buildMcp(IdUtils.create());
-        Mcp mcpTwo = buildMcp(IdUtils.create());
-        client.toBlocking().retrieve(POST(MCP_PATH, mcpOne), Mcp.class);
-        client.toBlocking().retrieve(POST(MCP_PATH, mcpTwo), Mcp.class);
+        ApiMcp mcpOne = buildMcp(IdUtils.create());
+        ApiMcp mcpTwo = buildMcp(IdUtils.create());
+        ApiMcp createdOne = client.toBlocking().retrieve(POST(MCP_PATH, mcpOne), ApiMcp.class);
+        ApiMcp createdTwo = client.toBlocking().retrieve(POST(MCP_PATH, mcpTwo), ApiMcp.class);
 
         // When
-        PagedResults<Mcp> results = client.toBlocking().retrieve(
+        PagedResults<ApiMcp> results = client.toBlocking().retrieve(
             GET(MCP_PATH + "?page=1&size=100"),
-            Argument.of(PagedResults.class, Mcp.class)
+            Argument.of(PagedResults.class, ApiMcp.class)
         );
 
         // Then
         assertThat(results).isNotNull();
         assertThat(results.getTotal()).isGreaterThanOrEqualTo(2);
-        List<String> ids = results.getResults().stream().map(Mcp::id).toList();
-        assertThat(ids).contains(mcpOne.id(), mcpTwo.id());
+        List<String> ids = results.getResults().stream().map(ApiMcp::id).toList();
+        assertThat(ids).contains(createdOne.id(), createdTwo.id());
     }
 
     @Test
     void givenExistingMcp_whenUpdate_thenMcpIsUpdated() {
         // Given
-        Mcp mcp = buildMcp(IdUtils.create());
-        client.toBlocking().retrieve(POST(MCP_PATH, mcp), Mcp.class);
-        Mcp updated = new Mcp(null, mcp.id(), mcp.namespace(), "Updated Name", mcp.description(), null, null, null, false, null, false, false, null, null);
+        ApiMcp mcp = buildMcp(IdUtils.create());
+        ApiMcp created = client.toBlocking().retrieve(POST(MCP_PATH, mcp), ApiMcp.class);
+        ApiMcp update = new ApiMcp(null, created.namespace(), "Updated Name", created.description(),
+            null, null, null, false, null, false, null, null);
 
         // When
-        Mcp result = client.toBlocking().retrieve(PUT(MCP_PATH + "/" + mcp.id(), updated), Mcp.class);
+        ApiMcp result = client.toBlocking().retrieve(PUT(MCP_PATH + "/" + created.id(), update), ApiMcp.class);
 
         // Then
         assertThat(result).isNotNull();
@@ -148,39 +151,24 @@ class McpControllerTest {
     void givenNonExistingMcp_whenUpdate_thenNotFoundReturned() {
         // Given
         String nonExistentId = IdUtils.create();
-        Mcp mcp = buildMcp(nonExistentId);
+        ApiMcp mcp = buildMcp(IdUtils.create());
 
         // When / Then
         HttpClientResponseException e = Assertions.assertThrows(
             HttpClientResponseException.class,
-            () -> client.toBlocking().exchange(PUT(MCP_PATH + "/" + nonExistentId, mcp), Mcp.class)
+            () -> client.toBlocking().exchange(PUT(MCP_PATH + "/" + nonExistentId, mcp), ApiMcp.class)
         );
         assertThat(e.getStatus().getCode()).isEqualTo(HttpStatus.NOT_FOUND.getCode());
     }
 
     @Test
-    void givenExistingMcpWithMismatchedId_whenUpdate_thenValidationErrorReturned() {
-        // Given
-        Mcp mcp = buildMcp(IdUtils.create());
-        client.toBlocking().retrieve(POST(MCP_PATH, mcp), Mcp.class);
-        Mcp withDifferentId = buildMcp(IdUtils.create());
-
-        // When / Then
-        HttpClientResponseException e = Assertions.assertThrows(
-            HttpClientResponseException.class,
-            () -> client.toBlocking().retrieve(PUT(MCP_PATH + "/" + mcp.id(), withDifferentId), Mcp.class)
-        );
-        assertThat(e.getStatus().getCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY.getCode());
-    }
-
-    @Test
     void givenExistingMcp_whenDelete_thenNoContentReturned() {
         // Given
-        Mcp mcp = buildMcp(IdUtils.create());
-        client.toBlocking().retrieve(POST(MCP_PATH, mcp), Mcp.class);
+        ApiMcp mcp = buildMcp(IdUtils.create());
+        ApiMcp created = client.toBlocking().retrieve(POST(MCP_PATH, mcp), ApiMcp.class);
 
         // When
-        HttpResponse<Void> response = client.toBlocking().exchange(DELETE(MCP_PATH + "/" + mcp.id()));
+        HttpResponse<Void> response = client.toBlocking().exchange(DELETE(MCP_PATH + "/" + created.id()));
 
         // Then
         assertThat(response.code()).isEqualTo(HttpStatus.NO_CONTENT.getCode());
@@ -201,14 +189,14 @@ class McpControllerTest {
 
     @Test
     void givenReservedName_whenCreate_thenValidationErrorReturned() {
-        // Given
-        Mcp mcp = new Mcp(null, null, "io.kestra.test.mcp", Mcp.DEFAULT_NAME,
-            "A description", null, null, null, true, null, false, false, null, null);
+        // Given — "default" is a reserved name
+        ApiMcp mcp = new ApiMcp(null, "io.kestra.test.mcp", Mcp.DEFAULT_NAME,
+            "A description", null, null, null, true, null, false, null, null);
 
         // When / Then
         HttpClientResponseException e = Assertions.assertThrows(
             HttpClientResponseException.class,
-            () -> client.toBlocking().retrieve(POST(MCP_PATH, mcp), Mcp.class)
+            () -> client.toBlocking().retrieve(POST(MCP_PATH, mcp), ApiMcp.class)
         );
         assertThat(e.getStatus().getCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY.getCode());
     }
@@ -216,15 +204,15 @@ class McpControllerTest {
     @Test
     void givenExistingMcp_whenUpdateWithReservedName_thenValidationErrorReturned() {
         // Given
-        Mcp mcp = buildMcp(IdUtils.create());
-        Mcp created = client.toBlocking().retrieve(POST(MCP_PATH, mcp), Mcp.class);
-        Mcp renamed = new Mcp(null, created.id(), created.namespace(), Mcp.DEFAULT_NAME,
-            created.description(), null, null, null, true, null, false, false, null, null);
+        ApiMcp mcp = buildMcp(IdUtils.create());
+        ApiMcp created = client.toBlocking().retrieve(POST(MCP_PATH, mcp), ApiMcp.class);
+        ApiMcp renamed = new ApiMcp(null, created.namespace(), Mcp.DEFAULT_NAME,
+            created.description(), null, null, null, true, null, false, null, null);
 
         // When / Then
         HttpClientResponseException e = Assertions.assertThrows(
             HttpClientResponseException.class,
-            () -> client.toBlocking().retrieve(PUT(MCP_PATH + "/" + created.id(), renamed), Mcp.class)
+            () -> client.toBlocking().retrieve(PUT(MCP_PATH + "/" + created.id(), renamed), ApiMcp.class)
         );
         assertThat(e.getStatus().getCode()).isEqualTo(HttpStatus.UNPROCESSABLE_ENTITY.getCode());
     }
@@ -246,13 +234,13 @@ class McpControllerTest {
     @Test
     void givenExistingMcp_whenToggle_thenEnabledStateFlipped() {
         // Given
-        Mcp mcp = buildMcp(IdUtils.create());
-        Mcp created = client.toBlocking().retrieve(POST(MCP_PATH, mcp), Mcp.class);
+        ApiMcp mcp = buildMcp(IdUtils.create());
+        ApiMcp created = client.toBlocking().retrieve(POST(MCP_PATH, mcp), ApiMcp.class);
         assertThat(created.enabled()).isTrue();
 
         // When
-        Mcp toggled = client.toBlocking().retrieve(
-            PATCH(MCP_PATH + "/" + created.id() + "/toggle", ""), Mcp.class);
+        ApiMcp toggled = client.toBlocking().retrieve(
+            PATCH(MCP_PATH + "/" + created.id() + "/toggle", ""), ApiMcp.class);
 
         // Then
         assertThat(toggled.enabled()).isFalse();
@@ -266,12 +254,14 @@ class McpControllerTest {
         // When / Then
         HttpClientResponseException e = Assertions.assertThrows(
             HttpClientResponseException.class,
-            () -> client.toBlocking().retrieve(PATCH(MCP_PATH + "/" + nonExistentId + "/toggle", ""), Mcp.class)
+            () -> client.toBlocking().retrieve(PATCH(MCP_PATH + "/" + nonExistentId + "/toggle", ""), ApiMcp.class)
         );
         assertThat(e.getStatus().getCode()).isEqualTo(HttpStatus.NOT_FOUND.getCode());
     }
 
-    private static Mcp buildMcp(String id) {
-        return new Mcp(null, id, "io.kestra.test.mcp", "Test MCP Server", "A test description", null, null, null, true, null, false, false, null, null);
+    /** Builds a valid {@link ApiMcp} request payload with a unique name. */
+    private static ApiMcp buildMcp(String uniqueSuffix) {
+        return new ApiMcp(null, "io.kestra.test.mcp", "test-mcp-" + uniqueSuffix,
+            "A test description", null, null, null, true, null, false, null, null);
     }
 }
