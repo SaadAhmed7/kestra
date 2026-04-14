@@ -1,10 +1,16 @@
 package io.kestra.webserver.controllers.api;
 
+import io.kestra.core.models.flows.Flow;
+import io.kestra.core.models.flows.GenericFlow;
 import io.kestra.core.models.mcp.Mcp;
+import io.kestra.core.models.property.Property;
+import io.kestra.core.repositories.FlowRepositoryInterface;
 import io.kestra.core.repositories.McpRepositoryInterface;
 import io.kestra.core.tenant.TenantService;
 import io.kestra.core.utils.IdUtils;
 import io.kestra.core.junit.annotations.KestraTest;
+import io.kestra.plugin.core.debug.Return;
+import io.kestra.plugin.core.trigger.McpToolTrigger;
 import io.micronaut.http.*;
 import io.micronaut.http.client.annotation.Client;
 import io.micronaut.http.client.exceptions.HttpClientResponseException;
@@ -20,6 +26,7 @@ import org.junit.jupiter.api.Test;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.io.IOException;
+import java.util.List;
 import java.util.Map;
 
 import static io.micronaut.http.HttpRequest.*;
@@ -63,6 +70,9 @@ class McpToolControllerTest {
 
     @Inject
     McpRepositoryInterface mcpRepository;
+
+    @Inject
+    FlowRepositoryInterface flowRepository;
 
     @Test
     void givenUnknownServer_whenConnect_thenNotFoundReturned() {
@@ -249,6 +259,51 @@ class McpToolControllerTest {
     }
 
     // -------------------------------------------------------------------------
+    // MCP tools — listing and tool-level protocol validation
+    // -------------------------------------------------------------------------
+
+    @Test
+    void givenFlowWithMcpTrigger_whenToolsListRequested_thenToolAppearsInList() {
+        // Given — flow must exist before session init so the server picks it up when built
+        String serverName = saveServer(true, null);
+        String toolName = saveFlowWithTool(serverName);
+        String sessionId = initialize(serverName);
+
+        // When
+        String body = client.toBlocking().retrieve(
+            mcpPost(serverName, TOOLS_LIST_REQUEST, sessionId),
+            String.class
+        );
+
+        // Then — the SSE body lists the tool registered on this server
+        assertThat(body).contains(toolName);
+    }
+
+    @Test
+    void givenUnknownToolName_whenToolCallSent_thenMcpErrorReturnedViaSse() {
+        // Given — server with no registered tools
+        String serverName = saveServer(true, null);
+        String sessionId = initialize(serverName);
+
+        McpSchema.JSONRPCRequest callRequest = new McpSchema.JSONRPCRequest(
+            McpSchema.JSONRPC_VERSION,
+            McpSchema.METHOD_TOOLS_CALL,
+            3,
+            new McpSchema.CallToolRequest("non-existent-tool", Map.of(), null)
+        );
+
+        // When — tool name has no matching handler; MCP returns a JSON-RPC error immediately
+        String body = client.toBlocking().retrieve(
+            mcpPost(serverName, callRequest, sessionId),
+            String.class
+        );
+
+        // Then — response contains a JSON-RPC error (not a successful result)
+        assertThat(body).contains("\"error\"");
+        assertThat(body).doesNotContain("\"result\"");
+    }
+
+    // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
 
@@ -300,5 +355,39 @@ class McpToolControllerTest {
         String sessionId = response.getHeaders().get(HttpHeaders.MCP_SESSION_ID);
         assertThat(sessionId).isNotBlank();
         return sessionId;
+    }
+
+    /**
+     * Persists a flow with a {@link McpToolTrigger} pointing at {@code serverName} and returns the
+     * tool name. The flow must be saved <em>before</em> initializing the session so that
+     * {@link io.kestra.mcp.McpServerHandlerTransport} registers it when building the server handler.
+     */
+    private String saveFlowWithTool(String serverName) {
+        String toolName = "tool-" + IdUtils.create().toLowerCase();
+        McpToolTrigger trigger = McpToolTrigger.builder()
+            .id("mcp-trigger")
+            .type(McpToolTrigger.class.getName())
+            .toolName(toolName)
+            .title("Test Tool")
+            .toolDescription("A test MCP tool")
+            .mcpServer(serverName)
+            .build();
+
+        flowRepository.create(GenericFlow.of(
+            Flow.builder()
+                .id(IdUtils.create())
+                .namespace(TEST_NAMESPACE)
+                .tenantId(TenantService.MAIN_TENANT)
+                .tasks(List.of(
+                    Return.builder()
+                        .id("task")
+                        .type(Return.class.getName())
+                        .format(Property.ofValue("done"))
+                        .build()
+                ))
+                .triggers(List.of(trigger))
+                .build()
+        ));
+        return toolName;
     }
 }
