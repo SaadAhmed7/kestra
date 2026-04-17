@@ -16,7 +16,7 @@ tasks:
 
       - id: if
         type: io.kestra.plugin.core.flow.If
-        condition: '{{ taskrun.value == "2" }}'
+        when: '{{ taskrun.value == "2" }}'
         then:
           - id: after_if
             type: io.kestra.plugin.core.debug.Return

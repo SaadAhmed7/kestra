@@ -7,7 +7,7 @@ variables:
 tasks:
   - id: if
     type: io.kestra.plugin.core.flow.If
-    condition: "{{ vars.numeric_variable > 0 }}"
+    when: "{{ vars.numeric_variable > 0 }}"
     then:
       - id: log1
         disabled: true

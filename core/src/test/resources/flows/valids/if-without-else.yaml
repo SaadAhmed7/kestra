@@ -8,7 +8,7 @@ inputs:
 tasks:
   - id: if
     type: io.kestra.plugin.core.flow.If
-    condition: "{{inputs.param}}"
+    when: "{{inputs.param}}"
     then:
       - id: when-true
         type: io.kestra.plugin.core.log.Log

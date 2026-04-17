@@ -18,21 +18,21 @@ tasks:
     tasks:
       - id: if-1
         type: io.kestra.plugin.core.flow.If
-        condition: "{{ inputs.if1 }}"
+        when: "{{ inputs.if1 }}"
         then:
           - id: if-1-log
             type: io.kestra.plugin.core.log.Log
             message: "Hello World!"
       - id: if-2
         type: io.kestra.plugin.core.flow.If
-        condition: "{{ inputs.if2 }}"
+        when: "{{ inputs.if2 }}"
         then:
           - id: if-2-log
             type: io.kestra.plugin.core.log.Log
             message: "Hello World!"
       - id: if-3
         type: io.kestra.plugin.core.flow.If
-        condition: "{{ inputs.if3 }}"
+        when: "{{ inputs.if3 }}"
         then:
           - id: if-3-log
             type: io.kestra.plugin.core.log.Log

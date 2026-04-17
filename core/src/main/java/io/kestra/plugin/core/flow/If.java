@@ -27,6 +27,7 @@ import io.kestra.core.utils.ListUtils;
 import io.kestra.core.utils.MapUtils;
 import io.kestra.core.utils.TruthUtils;
 
+import io.swagger.v3.oas.annotations.Hidden;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotEmpty;
@@ -42,7 +43,7 @@ import lombok.experimental.SuperBuilder;
 @Schema(
     title = "Branch tasks based on a rendered condition.",
     description = """
-        Renders `condition` and coerces it to boolean (empty string/0/null is false, everything else true). Executes `then` when true, `else` when false, with optional `errors`/`finally` blocks.
+        Renders `when` and coerces it to boolean (empty string/0/null is false, everything else true). Executes `then` when true, `else` when false, with optional `errors`/`finally` blocks.
 
         Frequently used after previous task results to drive control flow."""
 )
@@ -62,7 +63,7 @@ import lombok.experimental.SuperBuilder;
                 tasks:
                   - id: if
                     type: io.kestra.plugin.core.flow.If
-                    condition: "{{ inputs.string == 'Condition' }}"
+                    when: "{{ inputs.string == 'Condition' }}"
                     then:
                       - id: when_true
                         type: io.kestra.plugin.core.log.Log
@@ -85,7 +86,7 @@ public class If extends Task implements FlowableTask<If.Output> {
     // At some point, if we need it, we should allow bypassing (or clearing) the property evaluation cache
     @NotNull
     @PluginProperty(dynamic = true)
-    private String condition;
+    private String when;
 
     @Valid
     @PluginProperty
@@ -122,6 +123,12 @@ public class If extends Task implements FlowableTask<If.Output> {
     @Override
     public List<Task> getErrors() {
         return errors;
+    }
+
+    @Hidden
+    @Deprecated(since = "2.0.0", forRemoval = true)
+    public void setCondition(String condition) {
+        this.when = condition;
     }
 
     @Override
@@ -217,7 +224,7 @@ public class If extends Task implements FlowableTask<If.Output> {
     }
 
     private Boolean isTrue(RunContext runContext) throws IllegalVariableEvaluationException {
-        String rendered = runContext.render(condition);
+        String rendered = runContext.render(when);
         return TruthUtils.isTruthy(rendered);
     }
 

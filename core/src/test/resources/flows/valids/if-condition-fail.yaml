@@ -4,7 +4,7 @@ namespace: io.kestra.tests
 tasks:
   - id: if
     type: io.kestra.plugin.core.flow.If
-    condition: "{{ inputs.run }}"
+    when: "{{ inputs.run }}"
     then:
       - id: hello
         type: io.kestra.plugin.core.log.Log
