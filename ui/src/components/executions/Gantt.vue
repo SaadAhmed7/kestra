@@ -35,9 +35,11 @@
                 </template>
                 <template #default>
                     <DynamicScroller
+                        v-if="filteredSeries.length > 0"
                         :items="filteredSeries"
                         :minItemSize="40"
                         keyField="id"
+                        :buffer="0"
                         :updateInterval="0"
                     >
                         <template #default="{item, index, active}">
