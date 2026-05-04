@@ -38,7 +38,6 @@
                         :items="filteredSeries"
                         :minItemSize="40"
                         keyField="id"
-                        :buffer="0"
                         :updateInterval="0"
                     >
                         <template #default="{item, index, active}">
