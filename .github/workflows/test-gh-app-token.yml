@@ -1,0 +1,37 @@
+name: Test GH App Token
+
+on:
+  push:
+    branches:
+      - test/gh-app-token-app-id
+
+jobs:
+  test-client-id:
+    name: Test with GH_BOT_CLIENT_ID
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mint token for kestra-ee using GH_BOT_CLIENT_ID
+        uses: actions/create-github-app-token@v3
+        id: token-client-id
+        continue-on-error: true
+        with:
+          client-id: ${{ secrets.GH_BOT_CLIENT_ID }}
+          private-key: ${{ secrets.GH_BOT_PRIVATE_KEY }}
+          owner: kestra-io
+          repositories: kestra-ee
+      - run: echo "GH_BOT_CLIENT_ID result => ${{ steps.token-client-id.outcome }}"
+
+  test-app-id:
+    name: Test with GH_BOT_APP_ID
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mint token for kestra-ee using GH_BOT_APP_ID
+        uses: actions/create-github-app-token@v3
+        id: token-app-id
+        continue-on-error: true
+        with:
+          client-id: ${{ secrets.GH_BOT_APP_ID }}
+          private-key: ${{ secrets.GH_BOT_PRIVATE_KEY }}
+          owner: kestra-io
+          repositories: kestra-ee
+      - run: echo "GH_BOT_APP_ID result => ${{ steps.token-app-id.outcome }}"
