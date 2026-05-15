@@ -19,6 +19,7 @@ import io.kestra.cli.commands.plugins.PluginCommand;
 import io.kestra.cli.commands.servers.ServerCommand;
 import io.kestra.cli.commands.sys.SysCommand;
 import io.kestra.cli.schema.ConfigurationSchemaCommand;
+import io.kestra.cli.schema.PluginsSchemaCommand;
 import io.kestra.cli.services.EnvironmentProvider;
 
 import io.micronaut.configuration.picocli.MicronautFactory;
@@ -46,6 +47,7 @@ import picocli.CommandLine.Command;
         SysCommand.class,
         ConfigCommand.class,
         ConfigurationSchemaCommand.class,
+        PluginsSchemaCommand.class,
         NamespaceCommand.class,
         MigrationCommand.class
     }
