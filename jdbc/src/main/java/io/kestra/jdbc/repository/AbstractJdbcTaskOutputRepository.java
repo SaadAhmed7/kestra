@@ -15,6 +15,7 @@ import io.kestra.jdbc.AbstractJdbcRepository;
 
 public class AbstractJdbcTaskOutputRepository extends io.kestra.jdbc.repository.AbstractJdbcRepository implements TaskOutputRepositoryInterface {
     public static final Field<String> TASK_RUN_ID_FIELD = field("task_run_id", String.class);
+    public static final Field<String> TASK_ID_FIELD = field("task_id", String.class);
     public static final Field<String> EXECUTION_ID_FIELD = field("execution_id", String.class);
     public static final Field<byte[]> VALUE_FIELD = field("value", byte[].class);
     public static final Field<String> URI_ID_FIELD = field("uri", String.class);
@@ -75,6 +76,24 @@ public class AbstractJdbcTaskOutputRepository extends io.kestra.jdbc.repository.
     }
 
     @Override
+    public List<TaskOutput> findByTaskId(Execution execution, String taskId) {
+        var condition = EXECUTION_ID_FIELD.eq(execution.getId()).and(TASK_ID_FIELD.eq(taskId));
+        return this.jdbcRepository
+            .getDslContextWrapper()
+            .transactionResult(configuration ->
+            {
+                var select = DSL
+                    .using(configuration)
+                    .select()
+                    .from(this.jdbcRepository.getTable())
+                    .where(buildTenantCondition(execution.getTenantId()))
+                    .and(condition);
+
+                return select.fetch().map(record -> map(record));
+            });
+    }
+
+    @Override
     public int purgeByExecutionIds(List<String> executionIds) {
         return this.jdbcRepository
             .getDslContextWrapper()
@@ -90,6 +109,6 @@ public class AbstractJdbcTaskOutputRepository extends io.kestra.jdbc.repository.
     }
 
     private static TaskOutput map(org.jooq.Record record) {
-        return new TaskOutput(record.get(TASK_RUN_ID_FIELD), record.get(TENANT_ID_FIELD), record.get(EXECUTION_ID_FIELD), record.get(VALUE_FIELD), record.get(URI_ID_FIELD));
+        return new TaskOutput(record.get(TASK_RUN_ID_FIELD), record.get(TENANT_ID_FIELD), record.get(EXECUTION_ID_FIELD), record.get(TASK_ID_FIELD), record.get(VALUE_FIELD), record.get(URI_ID_FIELD));
     }
 }

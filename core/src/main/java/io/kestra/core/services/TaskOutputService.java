@@ -82,7 +82,7 @@ public class TaskOutputService {
             try {
                 byte[] value = ION_MAPPER.writeValueAsBytes(outputMap);
                 var output = shouldStoreInInternalStorage(value) ? storeToInternalStorage(taskRun, value)
-                    : new TaskOutput(taskRun.getId(), taskRun.getTenantId(), taskRun.getExecutionId(), value, null);
+                    : new TaskOutput(taskRun.getId(), taskRun.getTenantId(), taskRun.getExecutionId(), taskRun.getTaskId(), value, null);
                 outputRepository.save(output);
             } catch (JsonProcessingException e) {
                 throw new InternalException(e);
@@ -109,7 +109,7 @@ public class TaskOutputService {
             File file = Files.createTempFile("output-", ".ion").toFile();
             Files.write(file.toPath(), outputBytes);
             var uri = storage.putFile(file);
-            return new TaskOutput(taskRun.getId(), taskRun.getTenantId(), taskRun.getExecutionId(), null, uri.toString());
+            return new TaskOutput(taskRun.getId(), taskRun.getTenantId(), taskRun.getExecutionId(), taskRun.getTaskId(), null, uri.toString());
         } catch (IOException e) {
             throw new InternalException(e);
         }
@@ -194,6 +194,68 @@ public class TaskOutputService {
         if (execution.getLoopRun() != null) {
             result.putAll(computeOutputs(execution.getLoopRun().parent()));
         }
+
+        return result;
+    }
+
+    /**
+     * Compute the outputs of a task.
+     * This method will read all outputs of the task and compute the final outputs of this task.
+     */
+    public Map<String, Object> computeOutputs(Execution execution, String taskId) {
+        if (execution == null || execution.getTaskRunList() == null) {
+            return Collections.emptyMap();
+        }
+
+        // we pre-compute the map of taskrun by id to avoid traversing the list of all taskrun for each taskrun
+        Map<String, TaskRun> byIds = execution.getTaskRunList().stream()
+            .filter(taskRun -> taskId.equals(taskRun.getTaskId()))
+            .collect(Collectors.toMap(taskRun -> taskRun.getId(), taskRun -> taskRun));
+
+        // load all outputs
+        List<TaskOutput> allTaskOutputs = outputRepository.findByTaskId(execution, taskId);
+        if (execution.getLoopRun() != null) {
+            allTaskOutputs.addAll(outputRepository.findByTaskId(execution.getLoopRun().parent(), taskId));
+        }
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        allTaskOutputs.forEach(taskOutput ->
+            {
+                Map<String, Object> taskOutputs = new LinkedHashMap<>();
+                TaskRun current = byIds.get(taskOutput.taskRunId());
+
+                // pre 2.0 compatibility layer
+                @SuppressWarnings("deprecation")
+                Map<String, Object> outputMap = current.getOutputs();
+                if (outputMap == null) {
+                    var outputs = allTaskOutputs.stream().filter(it -> it.taskRunId().equals(current.getId()))
+                        .findAny();
+                    if (outputs.isPresent()) {
+                        try {
+                            outputMap = readOutput(current, outputs.get());
+                        } catch (InternalException e) {
+                            throw new KestraRuntimeException(e);
+                        }
+                    }
+                }
+
+                if (outputMap != null) {
+                    if (current.getIteration() != null) {
+                        Map<String, Object> merged = MapUtils.merge(taskOutputs, outputs(current, outputMap, byIds));
+                        // If one of two of the map is null in the merge() method, we just return the other
+                        // And if the not null map is a Variables (= read-only), we cast it back to a simple
+                        // hashmap to avoid taskOutputs becoming read-only
+                        // i.e this happens in nested loopUntil tasks
+                        if (merged instanceof Variables) {
+                            merged = new HashMap<>(merged);
+                        }
+                        taskOutputs = merged;
+                    } else {
+                        taskOutputs.putAll(outputs(current, outputMap, byIds));
+                    }
+                }
+                result.put(taskId, taskOutputs);
+            });
 
         return result;
     }
@@ -295,7 +357,7 @@ public class TaskOutputService {
     public void copyOutputs(TaskRun originalTaskRun, TaskRun newTaskRun) {
         var previousOutput = outputRepository.findById(originalTaskRun.getTenantId(), originalTaskRun.getId());
         if (previousOutput.isPresent()) {
-            var newOutput = new TaskOutput(newTaskRun.getId(), newTaskRun.getTenantId(), newTaskRun.getExecutionId(), previousOutput.get().value(), previousOutput.get().uri());
+            var newOutput = new TaskOutput(newTaskRun.getId(), newTaskRun.getTenantId(), newTaskRun.getExecutionId(), newTaskRun.getTaskId(), previousOutput.get().value(), previousOutput.get().uri());
             outputRepository.save(newOutput);
         }
     }

@@ -28,6 +28,11 @@ public interface TaskOutputRepositoryInterface {
     List<TaskOutput> findByExecution(Execution execution);
 
     /**
+     * Find all task outputs for a given execution and task id.
+     */
+    List<TaskOutput> findByTaskId(Execution execution, String taskId);
+
+    /**
      * Purge (hard delete) all task outputs for a given list of execution ids.
      *
      * @return the number of deleted outputs
