@@ -30,6 +30,7 @@ import {useLayoutStore} from "./stores/layout"
 import {useUnsavedChangesStore} from "./stores/unsavedChanges"
 import {useAuthStore} from "override/stores/auth"
 import {useMiscStore} from "override/stores/misc"
+import {capturePosthogException} from "./utils/posthog"
 
 
 const app = createApp(App)
@@ -146,6 +147,10 @@ async function beforeResolve(router: Router, to: any, from: any): Promise<unknow
 
 initApp(app, routes, null, en as Record<string, unknown>, {}, {beforeResolve: beforeResolve as (...args: unknown[]) => unknown}).then(({router, piniaStore}) => {
 
+    app.config.errorHandler = (error, _instance, info) => {
+        console.error(error)
+        capturePosthogException(useMiscStore().configs, error, {handler: "vue", info})
+    }
 
     // Setup tenant router
     setupTenantRouter(router, app)

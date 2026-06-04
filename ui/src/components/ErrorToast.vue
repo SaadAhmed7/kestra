@@ -92,29 +92,35 @@
         close()
     })
 
+    const isErrorVariant = computed(() => {
+        return props.message.variant === undefined || props.message.variant === "error"
+    })
+
     onMounted(() => {
-        const error: ErrorEvent = {
-            type: "ERROR",
-            error: {
-                message: title.value,
-                errors: items.value,
-            },
-            page: pageFromRoute(route),
-        }
-
-        if (props.message.response) {
-            error.error.response = {}
-            error.error.request = {
-                method: props.message.response.config.method ?? "GET",
-                url: props.message.response.config.url ?? "unknown url",
+        if (isErrorVariant.value) {
+            const error: ErrorEvent = {
+                type: "ERROR",
+                error: {
+                    message: title.value,
+                    errors: items.value,
+                },
+                page: pageFromRoute(route),
             }
 
-            if (props.message.response.status) {
-                error.error.response.status = props.message.response.status
-            }
-        }
+            if (props.message.response) {
+                error.error.response = {}
+                error.error.request = {
+                    method: props.message.response.config.method ?? "GET",
+                    url: props.message.response.config.url ?? "unknown url",
+                }
 
-        apiStore.events(error)
+                if (props.message.response.status) {
+                    error.error.response.status = props.message.response.status
+                }
+            }
+
+            apiStore.events(error)
+        }
 
         notifications.value = KsNotification({
             title: title.value || "Error",
