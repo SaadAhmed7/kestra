@@ -29,8 +29,7 @@
     })
 
     const instance = getCurrentInstance()
-    // FIXME: any - $filters is a global property registered via Vue plugin
-    const $filters = instance?.appContext.config.globalProperties.$filters as any // FIXME: any
+    const $filters = instance?.appContext.config.globalProperties.$filters
 
     const ts = (date: string | number) => new Date(date).getTime()
 

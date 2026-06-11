@@ -51,8 +51,7 @@
     const authStore = useAuthStore()
     const toast = useToast()
     const instance = getCurrentInstance()
-    // FIXME: any - $moment is registered as a global property via Vue plugin
-    const $moment = instance?.appContext.config.globalProperties.$moment as any // FIXME: any
+    const $moment = instance?.appContext.config.globalProperties.$moment
 
     const inputs = ref<Record<string, unknown>>({})
     const isDrawerOpen = ref(false)

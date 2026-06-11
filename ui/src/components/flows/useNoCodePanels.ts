@@ -67,20 +67,22 @@ interface NoCodeTabWithAction extends NoCodeProps {
 
 let keepAliveCacheBuster = 0
 
+function parsedBlock(flow: string, path: string): Record<string, unknown> {
+    const raw = YAML_UTILS.extractBlockWithPath({source: flow, path})
+    return raw ? YAML_UTILS.parse(raw) as Record<string, unknown> : {}
+}
+
 function getTabFromNoCodeTab(Comp: any, tab: NoCodeTabWithAction, t: (key: string) => string, handlers: Handlers, flow: string, te: (key: string) => boolean): Tab {
     function getTabValues(_innerTab: NoCodeTabWithAction) {
-        // FIXME optimize by avoiding to stringify then parse again the yaml object.
-        // maybe we could have a function in the YAML_UTILS that returns the parsed value.
-        const parentBlock: any = tab.parentPath ? YAML_UTILS.parse(YAML_UTILS.extractBlockWithPath({
-            source: flow,
-            path: tab.parentPath.replace(/\.[^.]+$/, ""),
-        })) : {}
+        const parentBlock = tab.parentPath
+            ? parsedBlock(flow, tab.parentPath.replace(/\.[^.]+$/, ""))
+            : {}
 
         const blockType = tab.parentPath?.split(".").pop() ?? ""
 
         const newTabName = te(`no_code.creation.${blockType}`) ? t(`no_code.creation.${blockType}`) : t("no_code.creation.default")
 
-        const parentName = parentBlock ? parentBlock.id ?? parentBlock.type ?? tab.parentPath : tab.parentPath
+        const parentName = parentBlock ? (parentBlock["id"] ?? parentBlock["type"] ?? tab.parentPath) : tab.parentPath
         if (tab.action === "create") {
             return {
                 uid: getCreateTabKey(tab, keepAliveCacheBuster++),
@@ -94,15 +96,12 @@ function getTabFromNoCodeTab(Comp: any, tab: NoCodeTabWithAction, t: (key: strin
                 ? `${tab.parentPath}[${tab.refPath}]`
                 : tab.parentPath ?? ""
 
-            const currentBlock: any = tab.parentPath ? YAML_UTILS.parse(YAML_UTILS.extractBlockWithPath({
-                source: flow,
-                path,
-            })) : {}
+            const currentBlock = tab.parentPath ? parsedBlock(flow, path) : {}
 
             return {
                 uid: getEditTabKey(tab, keepAliveCacheBuster++),
                 button: {
-                    label: `${parentName} / ${currentBlock?.id ?? tab.refPath ?? newTabName}`,
+                    label: `${parentName} / ${currentBlock?.["id"] ?? tab.refPath ?? newTabName}`,
                     icon: markRaw(MouseRightClickIcon),
                 },
             } satisfies Omit<Tab, "component">

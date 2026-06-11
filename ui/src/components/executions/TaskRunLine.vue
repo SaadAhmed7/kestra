@@ -447,11 +447,12 @@
 
     .task-run-buttons {
       padding: 0 .5rem;
-      border: 1px solid rgba(#FFFFFF, .05);
+      border: 1px solid rgba(255 255 255 / 5%);
       background-color: var(--ks-btn-secondary-bg-default) !important;
-      // FIXME: what does this mean?
+      // Idle state: faint white overlay makes buttons visible against the dark task row.
+      // On hover, background-color from above takes over via the !important rule.
       &:not(:hover) {
-        background: rgba(#FFFFFF, .10);
+        background: rgba(255 255 255 / 10%);
       }
     }
   }

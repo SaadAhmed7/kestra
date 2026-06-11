@@ -1,5 +1,5 @@
 import {createApp} from "vue"
-import type {Router} from "vue-router"
+import type {Router, RouteLocationNormalized} from "vue-router"
 
 import "./utils/monacoEnvironment"
 
@@ -83,8 +83,7 @@ function setupAxios(router: Router) {
     return axiosInstance
 }
 
-// FIXME: any - guard args are untyped in the GuardFn interface
-async function beforeResolve(router: Router, to: any, from: any): Promise<unknown> { // FIXME: any
+async function beforeResolve(router: Router, to: RouteLocationNormalized, from: RouteLocationNormalized): Promise<unknown> {
     if(to.path === from.path && to.query === from.query) {
         return // Prevent navigation if the path and query are the same
     }
@@ -155,8 +154,7 @@ initApp(app, routes, null, en as Record<string, unknown>, {}, {beforeResolve: be
     const $http = setupAxios(router)
 
     piniaStore.use(({store: piniaStoreLocal}) => {
-        // FIXME: any
-        ;(piniaStoreLocal as any).$http = $http
+        piniaStoreLocal.$http = $http
     })
 
     // mount

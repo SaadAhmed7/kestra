@@ -1,5 +1,4 @@
-// FIXME: any - recursive generic, complex object traversal
-export function loopOver(item: any, predicate: (item: any) => boolean, result?: any[]): any[] { // FIXME: any
+export function loopOver(item: unknown, predicate: (item: unknown) => boolean, result?: unknown[]): unknown[] {
     if (result === undefined) {
         result = []
     }
@@ -11,7 +10,7 @@ export function loopOver(item: any, predicate: (item: any) => boolean, result?: 
     if (Array.isArray(item)) {
         item.flatMap(child => loopOver(child, predicate, result))
     } else if (item instanceof Object) {
-        Object.entries(item).flatMap(([_key, value]) => {
+        Object.entries(item as Record<string, unknown>).flatMap(([_key, value]) => {
             loopOver(value, predicate, result)
         })
     }
@@ -22,7 +21,8 @@ export function loopOver(item: any, predicate: (item: any) => boolean, result?: 
 export function findTaskById(flow: unknown, taskId: string): {type?: string; id?: string; [key: string]: unknown} | undefined {
     const result = loopOver(flow, (value) => {
         if (value instanceof Object) {
-            if (value.type !== undefined && value.id === taskId) {
+            const obj = value as Record<string, unknown>
+            if (obj["type"] !== undefined && obj["id"] === taskId) {
                 return true
             }
         }
