@@ -65,6 +65,12 @@ jobs:
     secrets:
       GITHUB_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+  e2e-tests:
+    name: E2E - Tests
+    uses: kestra-io/actions/.github/workflows/kestra-oss-e2e-tests.yml@main
+    with:
+      java-version: 25
+
   publish-develop-docker:
     name: Publish Docker
     needs: [backend-tests, frontend-tests, design-system-frontend-tests]
