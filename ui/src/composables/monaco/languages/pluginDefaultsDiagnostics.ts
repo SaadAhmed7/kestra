@@ -174,6 +174,19 @@ export function buildPluginAliasMap(
 }
 
 /**
+ * Per-marker decision detail, surfaced through the optional {@code onDecision} callback of
+ * {@link filterPluginDefaultMarkers} for debugging/observability. Never affects filtering.
+ */
+export interface MarkerDecision {
+    message: string;
+    isMissingRequired: boolean;
+    property?: string;
+    pluginType?: string;
+    suppressed: boolean;
+    reason: string;
+}
+
+/**
  * Returns the subset of {@code markers} that should remain after suppressing
  * "missing required property" diagnostics that are covered by the flow's {@code pluginDefaults}.
  *
@@ -186,6 +199,7 @@ export function buildPluginAliasMap(
  * @param source        the raw YAML flow source the markers refer to
  * @param offsetAt      maps a (line, column) marker position to a character offset in {@code source}
  * @param aliasResolver optional resolver from an alias type to its canonical class name
+ * @param onDecision    optional sink receiving the decision taken for each marker (for debugging)
  * @return the markers to keep
  */
 export function filterPluginDefaultMarkers<T extends SuppressibleMarker>(
@@ -193,15 +207,28 @@ export function filterPluginDefaultMarkers<T extends SuppressibleMarker>(
     source: string,
     offsetAt: (lineNumber: number, column: number) => number,
     aliasResolver?: (type: string) => string,
+    onDecision?: (decision: MarkerDecision) => void,
 ): T[] {
     const defaults = parseFlowPluginDefaults(source)
     if (!defaults.length) {
+        onDecision?.({
+            message: "(filter skipped)",
+            isMissingRequired: false,
+            suppressed: false,
+            reason: "no pluginDefaults in source",
+        })
         return markers
     }
 
     return markers.filter((marker) => {
         const property = extractMissingRequiredProperty(marker.message)
         if (!property) {
+            onDecision?.({
+                message: marker.message,
+                isMissingRequired: false,
+                suppressed: false,
+                reason: "not a missing-required diagnostic",
+            })
             return true
         }
         const pluginType = findEnclosingPluginType(
@@ -209,9 +236,25 @@ export function filterPluginDefaultMarkers<T extends SuppressibleMarker>(
             offsetAt(marker.startLineNumber, marker.startColumn),
         )
         if (!pluginType) {
+            onDecision?.({
+                message: marker.message,
+                isMissingRequired: true,
+                property,
+                suppressed: false,
+                reason: "no enclosing typed object resolved at marker position",
+            })
             return true
         }
+        const suppressed = pluginDefaultProvidesProperty(pluginType, property, defaults, aliasResolver)
+        onDecision?.({
+            message: marker.message,
+            isMissingRequired: true,
+            property,
+            pluginType,
+            suppressed,
+            reason: suppressed ? "covered by a matching pluginDefault" : "no matching default supplies this property",
+        })
         // Drop the marker only when a matching default actually supplies the property.
-        return !pluginDefaultProvidesProperty(pluginType, property, defaults, aliasResolver)
+        return !suppressed
     })
 }

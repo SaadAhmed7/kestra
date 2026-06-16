@@ -20,7 +20,7 @@ import {
 } from "./pebbleLanguageConfigurator"
 import {usePluginsStore} from "../../../stores/plugins"
 import {useBlueprintsStore} from "../../../stores/blueprints"
-import {filterPluginDefaultMarkers, buildPluginAliasMap} from "./pluginDefaultsDiagnostics"
+import {filterPluginDefaultMarkers, buildPluginAliasMap, parseFlowPluginDefaults} from "./pluginDefaultsDiagnostics"
 import * as Utils from "../../../utils/utils"
 import {makeToast} from "../../../utils/toast"
 import {provideEditorArtifacts, ARTIFACT_COPY_COMMAND} from "../artifacts"
@@ -35,6 +35,21 @@ import CancellationToken = monaco.CancellationToken;
 
 // The marker filter is a global monaco hook; register it only once across editor instances.
 let pluginDefaultsMarkerFilterRegistered = false
+
+// Opt-in diagnostics: set localStorage.pluginDefaultsDebug = "true" in the browser console to trace
+// why a "missing required property" marker is (or is not) being suppressed, then reload.
+function isPluginDefaultsDebug(): boolean {
+    try {
+        return localStorage.getItem("pluginDefaultsDebug") === "true"
+    } catch {
+        return false
+    }
+}
+
+function pluginDefaultsLog(...args: unknown[]): void {
+    // eslint-disable-next-line no-console
+    console.debug("[pluginDefaults]", ...args)
+}
 
 type TaskLike = Record<string, unknown>;
 
@@ -399,6 +414,10 @@ export class YamlLanguageConfigurator extends AbstractLanguageConfigurator {
         }
         pluginDefaultsMarkerFilterRegistered = true
 
+        if (isPluginDefaultsDebug()) {
+            pluginDefaultsLog("marker filter registered")
+        }
+
         // Re-entrancy guard: setModelMarkers below re-fires onDidChangeMarkers.
         let isFiltering = false
 
@@ -419,17 +438,36 @@ export class YamlLanguageConfigurator extends AbstractLanguageConfigurator {
                 return
             }
 
+            const debug = isPluginDefaultsDebug()
+            if (debug) {
+                pluginDefaultsLog("onDidChangeMarkers", resources.map((r) => r.path))
+            }
+
             for (const resource of resources) {
                 const model = monaco.editor.getModel(resource)
                 // Only flow editors expose pluginDefaults at the top level.
                 if (!model || !model.uri.path.includes("flow-")) {
+                    if (debug && model) {
+                        pluginDefaultsLog("skip (uri does not contain 'flow-')", model.uri.path)
+                    }
                     continue
                 }
 
                 // Read every owner's markers — monaco-yaml's diagnostics owner is not a stable contract.
                 const allMarkers = monaco.editor.getModelMarkers({resource})
                 if (!allMarkers.length) {
+                    if (debug) {
+                        pluginDefaultsLog("no markers for", model.uri.path)
+                    }
                     continue
+                }
+
+                if (debug) {
+                    pluginDefaultsLog(
+                        "markers for", model.uri.path,
+                        allMarkers.map((m) => ({owner: m.owner, message: m.message, line: m.startLineNumber, col: m.startColumn})),
+                    )
+                    pluginDefaultsLog("parsed pluginDefaults", parseFlowPluginDefaults(model.getValue()))
                 }
 
                 const kept = filterPluginDefaultMarkers(
@@ -437,6 +475,7 @@ export class YamlLanguageConfigurator extends AbstractLanguageConfigurator {
                     model.getValue(),
                     (lineNumber, column) => model.getOffsetAt({lineNumber, column}),
                     aliasResolver,
+                    debug ? (decision) => pluginDefaultsLog("decision", decision) : undefined,
                 )
 
                 // Nothing suppressed: skip the reset to avoid a needless marker-change loop.
@@ -448,6 +487,13 @@ export class YamlLanguageConfigurator extends AbstractLanguageConfigurator {
                 const affectedOwners = new Set(
                     allMarkers.filter((marker) => !kept.includes(marker)).map((marker) => marker.owner),
                 )
+
+                if (debug) {
+                    pluginDefaultsLog(
+                        "suppressing", allMarkers.length - kept.length, "marker(s); rewriting owners",
+                        [...affectedOwners],
+                    )
+                }
 
                 isFiltering = true
                 try {
