@@ -5,6 +5,7 @@ import {
     extractMissingRequiredProperty,
     findEnclosingPluginType,
     filterPluginDefaultMarkers,
+    buildPluginAliasMap,
 } from "../../../../src/composables/monaco/languages/pluginDefaultsDiagnostics"
 
 const FLOW = `id: valid_workflow
@@ -191,5 +192,64 @@ pluginDefaults:
         expect(filterPluginDefaultMarkers(markers, aliasFlow, aliasOffsetAt)).toEqual(markers)
         // ...with the resolver the canonical types match and the marker is suppressed.
         expect(filterPluginDefaultMarkers(markers, aliasFlow, aliasOffsetAt, resolver)).toEqual([])
+    })
+})
+
+describe("buildPluginAliasMap", () => {
+    // Mirrors the flow-schema shape: task `type` is an enum of [canonical, ...aliases],
+    // or a single-value `const` when there are no aliases.
+    const definitions = {
+        "io.kestra.plugin.core.http.Request": {
+            properties: {
+                type: {
+                    enum: [
+                        "io.kestra.plugin.core.http.Request",
+                        "io.kestra.core.tasks.http.Request",
+                    ],
+                },
+            },
+        },
+        "io.kestra.plugin.core.log.Log": {
+            properties: {type: {const: "io.kestra.plugin.core.log.Log"}},
+        },
+    }
+
+    it("should map each alias to its canonical class", () => {
+        expect(buildPluginAliasMap(definitions)).toEqual({
+            "io.kestra.core.tasks.http.Request": "io.kestra.plugin.core.http.Request",
+        })
+    })
+
+    it("should ignore const-only types and tolerate missing definitions", () => {
+        expect(buildPluginAliasMap(undefined)).toEqual({})
+        expect(buildPluginAliasMap({})).toEqual({})
+    })
+
+    it("should drive end-to-end suppression when used as the resolver", () => {
+        const aliasFlow = `id: f
+namespace: n
+
+tasks:
+  - id: t
+    type: io.kestra.plugin.core.http.Request
+
+pluginDefaults:
+  - type: io.kestra.core.tasks.http.Request
+    values:
+      uri: https://x
+`
+        const offsetAt = (lineNumber: number, column: number): number => {
+            const lines = aliasFlow.split("\n")
+            let offset = 0
+            for (let i = 0; i < lineNumber - 1; i++) {
+                offset += lines[i].length + 1
+            }
+            return offset + (column - 1)
+        }
+        const aliasMap = buildPluginAliasMap(definitions)
+        const resolver = (type: string) => aliasMap[type] ?? type
+        const markers = [{message: 'Missing property "uri".', startLineNumber: 5, startColumn: 5}]
+
+        expect(filterPluginDefaultMarkers(markers, aliasFlow, offsetAt, resolver)).toEqual([])
     })
 })

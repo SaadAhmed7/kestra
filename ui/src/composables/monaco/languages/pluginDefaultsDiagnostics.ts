@@ -136,6 +136,44 @@ export interface SuppressibleMarker {
 }
 
 /**
+ * Builds an alias-to-canonical plugin type map from the flow schema definitions.
+ *
+ * <p>The flow schema emits each task/trigger subschema's {@code type} property as an {@code enum}
+ * listing the canonical class first followed by its aliases (see {@code JsonSchemaGenerator}). A
+ * single-value {@code type} is emitted as {@code const} and contributes no alias. The resulting map
+ * lets the marker filter treat a default declared with an alias type as equivalent to the canonical
+ * task type, mirroring {@code PluginDefaultService#addAliases}.</p>
+ *
+ * @param definitions the flow schema {@code definitions} object (keyed by class name)
+ * @return a map from each alias type to its canonical class name
+ */
+export function buildPluginAliasMap(
+    definitions: Record<string, unknown> | undefined | null,
+): Record<string, string> {
+    const map: Record<string, string> = {}
+    if (!definitions) {
+        return map
+    }
+    for (const definition of Object.values(definitions)) {
+        const typeEnum = (definition as {properties?: {type?: {enum?: unknown}}})
+            ?.properties?.type?.enum
+        if (!Array.isArray(typeEnum) || typeEnum.length <= 1) {
+            continue
+        }
+        const [canonical, ...aliases] = typeEnum
+        if (typeof canonical !== "string") {
+            continue
+        }
+        for (const alias of aliases) {
+            if (typeof alias === "string") {
+                map[alias] = canonical
+            }
+        }
+    }
+    return map
+}
+
+/**
  * Returns the subset of {@code markers} that should remain after suppressing
  * "missing required property" diagnostics that are covered by the flow's {@code pluginDefaults}.
  *

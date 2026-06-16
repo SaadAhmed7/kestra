@@ -20,7 +20,7 @@ import {
 } from "./pebbleLanguageConfigurator"
 import {usePluginsStore} from "../../../stores/plugins"
 import {useBlueprintsStore} from "../../../stores/blueprints"
-import {filterPluginDefaultMarkers} from "./pluginDefaultsDiagnostics"
+import {filterPluginDefaultMarkers, buildPluginAliasMap} from "./pluginDefaultsDiagnostics"
 import * as Utils from "../../../utils/utils"
 import {makeToast} from "../../../utils/toast"
 import {provideEditorArtifacts, ARTIFACT_COPY_COMMAND} from "../artifacts"
@@ -33,8 +33,6 @@ import CompletionItem = languages.CompletionItem;
 import CompletionContext = languages.CompletionContext;
 import CancellationToken = monaco.CancellationToken;
 
-// monaco-yaml publishes its schema-validation diagnostics under this marker owner.
-const MONACO_YAML_MARKER_OWNER = "yaml"
 // The marker filter is a global monaco hook; register it only once across editor instances.
 let pluginDefaultsMarkerFilterRegistered = false
 
@@ -135,7 +133,7 @@ export class YamlLanguageConfigurator extends AbstractLanguageConfigurator {
             schemas: yamlSchemas(),
         })
 
-        this.registerPluginDefaultsDiagnosticsFilter()
+        this.registerPluginDefaultsDiagnosticsFilter(pluginsStore)
 
         const yamlCompletion = (
             StandaloneServices.get(ILanguageFeaturesService).completionProvider
@@ -388,11 +386,14 @@ export class YamlLanguageConfigurator extends AbstractLanguageConfigurator {
      * before the flow runs. This post-filters those false positives — and only those: a missing
      * required property with no matching default is left untouched, preserving genuine validation.</p>
      *
-     * <p>{@code filterPluginDefaultMarkers} accepts an optional alias resolver (canonicalizing aliased
-     * plugin types before matching). It is intentionally omitted here because the frontend does not yet
-     * expose an alias-to-canonical map; wiring it is a follow-up once that data is available.</p>
+     * <p>The marker owner used by monaco-yaml is an internal detail, so we read markers across every
+     * owner and re-set only the owners whose markers we actually changed. An alias resolver derived
+     * from the loaded flow schema (whose task {@code type} enums list canonical-then-alias values)
+     * lets a default declared with an alias type match its canonical task type.</p>
+     *
+     * @param pluginsStore the plugins store, used to derive the alias-to-canonical map
      */
-    private registerPluginDefaultsDiagnosticsFilter() {
+    private registerPluginDefaultsDiagnosticsFilter(pluginsStore: ReturnType<typeof usePluginsStore>) {
         if (pluginDefaultsMarkerFilterRegistered) {
             return
         }
@@ -400,6 +401,18 @@ export class YamlLanguageConfigurator extends AbstractLanguageConfigurator {
 
         // Re-entrancy guard: setModelMarkers below re-fires onDidChangeMarkers.
         let isFiltering = false
+
+        // Alias map memoized on the flow-schema definitions reference (rebuilt only when it changes).
+        let cachedDefinitions: unknown
+        let cachedAliasMap: Record<string, string> = {}
+        const aliasResolver = (type: string): string => {
+            const definitions = pluginsStore.flowDefinitions
+            if (definitions !== cachedDefinitions) {
+                cachedDefinitions = definitions
+                cachedAliasMap = buildPluginAliasMap(definitions as Record<string, unknown>)
+            }
+            return cachedAliasMap[type] ?? type
+        }
 
         monaco.editor.onDidChangeMarkers((resources) => {
             if (isFiltering) {
@@ -413,28 +426,38 @@ export class YamlLanguageConfigurator extends AbstractLanguageConfigurator {
                     continue
                 }
 
-                const yamlMarkers = monaco.editor.getModelMarkers({
-                    resource,
-                    owner: MONACO_YAML_MARKER_OWNER,
-                })
-                if (!yamlMarkers.length) {
+                // Read every owner's markers — monaco-yaml's diagnostics owner is not a stable contract.
+                const allMarkers = monaco.editor.getModelMarkers({resource})
+                if (!allMarkers.length) {
                     continue
                 }
 
                 const kept = filterPluginDefaultMarkers(
-                    yamlMarkers,
+                    allMarkers,
                     model.getValue(),
                     (lineNumber, column) => model.getOffsetAt({lineNumber, column}),
+                    aliasResolver,
                 )
 
                 // Nothing suppressed: skip the reset to avoid a needless marker-change loop.
-                if (kept.length === yamlMarkers.length) {
+                if (kept.length === allMarkers.length) {
                     continue
                 }
 
+                // Re-set markers only for the owners whose markers we actually changed.
+                const affectedOwners = new Set(
+                    allMarkers.filter((marker) => !kept.includes(marker)).map((marker) => marker.owner),
+                )
+
                 isFiltering = true
                 try {
-                    monaco.editor.setModelMarkers(model, MONACO_YAML_MARKER_OWNER, kept)
+                    for (const owner of affectedOwners) {
+                        monaco.editor.setModelMarkers(
+                            model,
+                            owner,
+                            kept.filter((marker) => marker.owner === owner),
+                        )
+                    }
                 } finally {
                     isFiltering = false
                 }
