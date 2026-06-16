@@ -48,7 +48,7 @@ function isPluginDefaultsDebug(): boolean {
 
 function pluginDefaultsLog(...args: unknown[]): void {
     // eslint-disable-next-line no-console
-    console.debug("[pluginDefaults]", ...args)
+    console.log("[pluginDefaults]", ...args)
 }
 
 type TaskLike = Record<string, unknown>;
@@ -132,6 +132,9 @@ export class YamlLanguageConfigurator extends AbstractLanguageConfigurator {
     }
 
     async configureLanguage(pluginsStore: ReturnType<typeof usePluginsStore>) {
+        if (isPluginDefaultsDebug()) {
+            pluginDefaultsLog("configureLanguage(yaml) running")
+        }
         const validateYAML = computed(() => useBlueprintsStore().validateYAML)
         // Keep Monaco YAML validation in sync with the blueprint store setting.
         watch(validateYAML, (shouldValidate) =>
@@ -416,6 +419,23 @@ export class YamlLanguageConfigurator extends AbstractLanguageConfigurator {
 
         if (isPluginDefaultsDebug()) {
             pluginDefaultsLog("marker filter registered")
+            // On-demand probe: call __pluginDefaultsDump() in the console to list every model's
+            // markers (owner/message/position) regardless of event timing.
+            try {
+                (globalThis as unknown as Record<string, unknown>).__pluginDefaultsDump = () =>
+                    monaco.editor.getModels().map((m) => ({
+                        uri: m.uri.path,
+                        markers: monaco.editor.getModelMarkers({resource: m.uri}).map((mk) => ({
+                            owner: mk.owner,
+                            message: mk.message,
+                            line: mk.startLineNumber,
+                            col: mk.startColumn,
+                        })),
+                    }))
+                pluginDefaultsLog("call __pluginDefaultsDump() in the console to list all model markers")
+            } catch {
+                /* no global scope */
+            }
         }
 
         // Re-entrancy guard: setModelMarkers below re-fires onDidChangeMarkers.
