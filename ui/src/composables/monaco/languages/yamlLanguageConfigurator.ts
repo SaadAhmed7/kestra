@@ -51,6 +51,157 @@ function pluginDefaultsLog(...args: unknown[]): void {
     console.log("[pluginDefaults]", ...args)
 }
 
+/**
+ * Registers the global monaco marker hook that suppresses "missing required property" diagnostics
+ * for task/trigger properties supplied through the flow's {@code pluginDefaults}.
+ *
+ * <p>monaco-yaml validates each task object in isolation against the plugin schema and has no
+ * knowledge of the sibling {@code pluginDefaults} section, so it reports a required property as
+ * missing even though the backend {@link io.kestra.core.services.PluginDefaultService} injects it
+ * before the flow runs. This post-filters those false positives — and only those: a missing required
+ * property with no matching default is left untouched, preserving genuine validation.</p>
+ *
+ * <p>The marker owner used by monaco-yaml is an internal detail, so we read markers across every
+ * owner and re-set only the owners whose markers we actually changed. An alias resolver derived from
+ * the loaded flow schema (whose task {@code type} enums list canonical-then-alias values) lets a
+ * default declared with an alias type match its canonical task type.</p>
+ *
+ * <p>Registered at module load — not inside {@code configureLanguage} — so it does not depend on the
+ * once-per-language guard or on the editor being (re)mounted.</p>
+ */
+function registerPluginDefaultsDiagnosticsFilter(): void {
+    if (pluginDefaultsMarkerFilterRegistered) {
+        return
+    }
+    pluginDefaultsMarkerFilterRegistered = true
+
+    if (isPluginDefaultsDebug()) {
+        pluginDefaultsLog("marker filter registered (module load)")
+        // On-demand probe: call __pluginDefaultsDump() in the console to list every model's markers
+        // (owner/message/position) regardless of event timing.
+        try {
+            (globalThis as unknown as Record<string, unknown>).__pluginDefaultsDump = () =>
+                monaco.editor.getModels().map((m) => ({
+                    uri: m.uri.path,
+                    markers: monaco.editor.getModelMarkers({resource: m.uri}).map((mk) => ({
+                        owner: mk.owner,
+                        message: mk.message,
+                        line: mk.startLineNumber,
+                        col: mk.startColumn,
+                    })),
+                }))
+            pluginDefaultsLog("call __pluginDefaultsDump() in the console to list all model markers")
+        } catch {
+            /* no global scope */
+        }
+    }
+
+    // Re-entrancy guard: setModelMarkers below re-fires onDidChangeMarkers.
+    let isFiltering = false
+
+    // Alias map memoized on the flow-schema definitions reference (rebuilt only when it changes).
+    let cachedDefinitions: unknown
+    let cachedAliasMap: Record<string, string> = {}
+    const aliasResolver = (type: string): string => {
+        let definitions: unknown
+        try {
+            definitions = usePluginsStore().flowDefinitions
+        } catch {
+            // Pinia not active yet — fall back to exact/prefix matching.
+            return type
+        }
+        if (definitions !== cachedDefinitions) {
+            cachedDefinitions = definitions
+            cachedAliasMap = buildPluginAliasMap(definitions as Record<string, unknown>)
+        }
+        return cachedAliasMap[type] ?? type
+    }
+
+    monaco.editor.onDidChangeMarkers((resources) => {
+        if (isFiltering) {
+            return
+        }
+
+        const debug = isPluginDefaultsDebug()
+        if (debug) {
+            pluginDefaultsLog("onDidChangeMarkers", resources.map((r) => r.path))
+        }
+
+        for (const resource of resources) {
+            const model = monaco.editor.getModel(resource)
+            // Only flow editors expose pluginDefaults at the top level.
+            if (!model || !model.uri.path.includes("flow-")) {
+                if (debug && model) {
+                    pluginDefaultsLog("skip (uri does not contain 'flow-')", model.uri.path)
+                }
+                continue
+            }
+
+            // Read every owner's markers — monaco-yaml's diagnostics owner is not a stable contract.
+            const allMarkers = monaco.editor.getModelMarkers({resource})
+            if (!allMarkers.length) {
+                if (debug) {
+                    pluginDefaultsLog("no markers for", model.uri.path)
+                }
+                continue
+            }
+
+            if (debug) {
+                pluginDefaultsLog(
+                    "markers for", model.uri.path,
+                    allMarkers.map((m) => ({owner: m.owner, message: m.message, line: m.startLineNumber, col: m.startColumn})),
+                )
+                pluginDefaultsLog("parsed pluginDefaults", parseFlowPluginDefaults(model.getValue()))
+            }
+
+            const kept = filterPluginDefaultMarkers(
+                allMarkers,
+                model.getValue(),
+                (lineNumber, column) => model.getOffsetAt({lineNumber, column}),
+                aliasResolver,
+                debug ? (decision) => pluginDefaultsLog("decision", decision) : undefined,
+            )
+
+            // Nothing suppressed: skip the reset to avoid a needless marker-change loop.
+            if (kept.length === allMarkers.length) {
+                continue
+            }
+
+            // Re-set markers only for the owners whose markers we actually changed.
+            const affectedOwners = new Set(
+                allMarkers.filter((marker) => !kept.includes(marker)).map((marker) => marker.owner),
+            )
+
+            if (debug) {
+                pluginDefaultsLog(
+                    "suppressing", allMarkers.length - kept.length, "marker(s); rewriting owners",
+                    [...affectedOwners],
+                )
+            }
+
+            isFiltering = true
+            try {
+                for (const owner of affectedOwners) {
+                    monaco.editor.setModelMarkers(
+                        model,
+                        owner,
+                        kept.filter((marker) => marker.owner === owner),
+                    )
+                }
+            } finally {
+                isFiltering = false
+            }
+        }
+    })
+}
+
+// Register at module load so the hook is active regardless of configureLanguage's once-guard,
+// HMR, or SPA navigation. Logs "module loaded" so we can confirm the new code is in the bundle.
+if (isPluginDefaultsDebug()) {
+    pluginDefaultsLog("module loaded (yamlLanguageConfigurator)")
+}
+registerPluginDefaultsDiagnosticsFilter()
+
 type TaskLike = Record<string, unknown>;
 
 function isTaskLike(value: unknown): value is TaskLike {
@@ -150,8 +301,6 @@ export class YamlLanguageConfigurator extends AbstractLanguageConfigurator {
             format: true,
             schemas: yamlSchemas(),
         })
-
-        this.registerPluginDefaultsDiagnosticsFilter(pluginsStore)
 
         const yamlCompletion = (
             StandaloneServices.get(ILanguageFeaturesService).completionProvider
@@ -392,143 +541,6 @@ export class YamlLanguageConfigurator extends AbstractLanguageConfigurator {
                 suggestions,
             }
         }
-    }
-
-    /**
-     * Suppresses "missing required property" diagnostics for task/trigger properties that are
-     * supplied through the flow's {@code pluginDefaults}.
-     *
-     * <p>monaco-yaml validates each task object in isolation against the plugin schema and has no
-     * knowledge of the sibling {@code pluginDefaults} section, so it reports a required property as
-     * missing even though the backend {@link io.kestra.core.services.PluginDefaultService} injects it
-     * before the flow runs. This post-filters those false positives — and only those: a missing
-     * required property with no matching default is left untouched, preserving genuine validation.</p>
-     *
-     * <p>The marker owner used by monaco-yaml is an internal detail, so we read markers across every
-     * owner and re-set only the owners whose markers we actually changed. An alias resolver derived
-     * from the loaded flow schema (whose task {@code type} enums list canonical-then-alias values)
-     * lets a default declared with an alias type match its canonical task type.</p>
-     *
-     * @param pluginsStore the plugins store, used to derive the alias-to-canonical map
-     */
-    private registerPluginDefaultsDiagnosticsFilter(pluginsStore: ReturnType<typeof usePluginsStore>) {
-        if (pluginDefaultsMarkerFilterRegistered) {
-            return
-        }
-        pluginDefaultsMarkerFilterRegistered = true
-
-        if (isPluginDefaultsDebug()) {
-            pluginDefaultsLog("marker filter registered")
-            // On-demand probe: call __pluginDefaultsDump() in the console to list every model's
-            // markers (owner/message/position) regardless of event timing.
-            try {
-                (globalThis as unknown as Record<string, unknown>).__pluginDefaultsDump = () =>
-                    monaco.editor.getModels().map((m) => ({
-                        uri: m.uri.path,
-                        markers: monaco.editor.getModelMarkers({resource: m.uri}).map((mk) => ({
-                            owner: mk.owner,
-                            message: mk.message,
-                            line: mk.startLineNumber,
-                            col: mk.startColumn,
-                        })),
-                    }))
-                pluginDefaultsLog("call __pluginDefaultsDump() in the console to list all model markers")
-            } catch {
-                /* no global scope */
-            }
-        }
-
-        // Re-entrancy guard: setModelMarkers below re-fires onDidChangeMarkers.
-        let isFiltering = false
-
-        // Alias map memoized on the flow-schema definitions reference (rebuilt only when it changes).
-        let cachedDefinitions: unknown
-        let cachedAliasMap: Record<string, string> = {}
-        const aliasResolver = (type: string): string => {
-            const definitions = pluginsStore.flowDefinitions
-            if (definitions !== cachedDefinitions) {
-                cachedDefinitions = definitions
-                cachedAliasMap = buildPluginAliasMap(definitions as Record<string, unknown>)
-            }
-            return cachedAliasMap[type] ?? type
-        }
-
-        monaco.editor.onDidChangeMarkers((resources) => {
-            if (isFiltering) {
-                return
-            }
-
-            const debug = isPluginDefaultsDebug()
-            if (debug) {
-                pluginDefaultsLog("onDidChangeMarkers", resources.map((r) => r.path))
-            }
-
-            for (const resource of resources) {
-                const model = monaco.editor.getModel(resource)
-                // Only flow editors expose pluginDefaults at the top level.
-                if (!model || !model.uri.path.includes("flow-")) {
-                    if (debug && model) {
-                        pluginDefaultsLog("skip (uri does not contain 'flow-')", model.uri.path)
-                    }
-                    continue
-                }
-
-                // Read every owner's markers — monaco-yaml's diagnostics owner is not a stable contract.
-                const allMarkers = monaco.editor.getModelMarkers({resource})
-                if (!allMarkers.length) {
-                    if (debug) {
-                        pluginDefaultsLog("no markers for", model.uri.path)
-                    }
-                    continue
-                }
-
-                if (debug) {
-                    pluginDefaultsLog(
-                        "markers for", model.uri.path,
-                        allMarkers.map((m) => ({owner: m.owner, message: m.message, line: m.startLineNumber, col: m.startColumn})),
-                    )
-                    pluginDefaultsLog("parsed pluginDefaults", parseFlowPluginDefaults(model.getValue()))
-                }
-
-                const kept = filterPluginDefaultMarkers(
-                    allMarkers,
-                    model.getValue(),
-                    (lineNumber, column) => model.getOffsetAt({lineNumber, column}),
-                    aliasResolver,
-                    debug ? (decision) => pluginDefaultsLog("decision", decision) : undefined,
-                )
-
-                // Nothing suppressed: skip the reset to avoid a needless marker-change loop.
-                if (kept.length === allMarkers.length) {
-                    continue
-                }
-
-                // Re-set markers only for the owners whose markers we actually changed.
-                const affectedOwners = new Set(
-                    allMarkers.filter((marker) => !kept.includes(marker)).map((marker) => marker.owner),
-                )
-
-                if (debug) {
-                    pluginDefaultsLog(
-                        "suppressing", allMarkers.length - kept.length, "marker(s); rewriting owners",
-                        [...affectedOwners],
-                    )
-                }
-
-                isFiltering = true
-                try {
-                    for (const owner of affectedOwners) {
-                        monaco.editor.setModelMarkers(
-                            model,
-                            owner,
-                            kept.filter((marker) => marker.owner === owner),
-                        )
-                    }
-                } finally {
-                    isFiltering = false
-                }
-            }
-        })
     }
 
     configureAutoCompletion(
