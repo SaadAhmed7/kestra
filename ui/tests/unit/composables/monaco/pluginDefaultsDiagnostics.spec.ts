@@ -4,6 +4,7 @@ import {
     pluginDefaultProvidesProperty,
     extractMissingRequiredProperty,
     findEnclosingPluginType,
+    filterPluginDefaultMarkers,
 } from "../../../../src/composables/monaco/languages/pluginDefaultsDiagnostics"
 
 const FLOW = `id: valid_workflow
@@ -73,6 +74,24 @@ describe("pluginDefaultProvidesProperty", () => {
             pluginDefaultProvidesProperty("io.kestra.plugin.core.log.Log", "uri", defaults),
         ).toBe(false)
     })
+
+    it("should match through an alias resolver when raw types differ", () => {
+        // Given a default declared with a legacy alias type
+        const aliased = [{type: "io.kestra.core.tasks.http.Request", values: {uri: "x"}}]
+        const resolver = (type: string) =>
+            type === "io.kestra.core.tasks.http.Request"
+                ? "io.kestra.plugin.core.http.Request"
+                : type
+
+        // Then the canonical forms match
+        expect(
+            pluginDefaultProvidesProperty("io.kestra.plugin.core.http.Request", "uri", aliased, resolver),
+        ).toBe(true)
+        // ...and without the resolver the raw, unequal types do not
+        expect(
+            pluginDefaultProvidesProperty("io.kestra.plugin.core.http.Request", "uri", aliased),
+        ).toBe(false)
+    })
 })
 
 describe("extractMissingRequiredProperty", () => {
@@ -101,5 +120,76 @@ describe("findEnclosingPluginType", () => {
     it("should return undefined when no typed object encloses the offset", () => {
         const offset = FLOW.indexOf("valid_workflow")
         expect(findEnclosingPluginType(FLOW, offset)).toBeUndefined()
+    })
+})
+
+describe("filterPluginDefaultMarkers", () => {
+    // Maps a (1-based line, 1-based column) position to a character offset in FLOW,
+    // mirroring monaco's IModel#getOffsetAt.
+    const offsetAt = (lineNumber: number, column: number): number => {
+        const lines = FLOW.split("\n")
+        let offset = 0
+        for (let i = 0; i < lineNumber - 1; i++) {
+            offset += lines[i].length + 1
+        }
+        return offset + (column - 1)
+    }
+
+    // All three markers point at the http Request task (line 5: "  - id: test_utl").
+    const uriMissing = {message: 'Missing property "uri".', startLineNumber: 5, startColumn: 5}
+    const bodyMissing = {message: 'Missing property "body".', startLineNumber: 5, startColumn: 5}
+    const typeError = {message: "Incorrect type. Expected \"string\".", startLineNumber: 6, startColumn: 11}
+
+    it("should drop only the missing-required marker covered by a pluginDefault", () => {
+        // When
+        const kept = filterPluginDefaultMarkers(
+            [uriMissing, bodyMissing, typeError],
+            FLOW,
+            offsetAt,
+        )
+
+        // Then `uri` (supplied by the default) is removed; `body` and the type error remain.
+        expect(kept).toEqual([bodyMissing, typeError])
+    })
+
+    it("should leave markers untouched when the flow has no pluginDefaults", () => {
+        const noDefaults = "id: f\nnamespace: n\ntasks:\n  - id: t\n    type: io.kestra.plugin.core.http.Request\n"
+        const markers = [{message: 'Missing property "uri".', startLineNumber: 4, startColumn: 5}]
+
+        expect(filterPluginDefaultMarkers(markers, noDefaults, offsetAt)).toEqual(markers)
+    })
+
+    it("should suppress via the alias resolver when the default uses an aliased type", () => {
+        // Given a flow whose default is declared with a legacy alias type
+        const aliasFlow = `id: f
+namespace: n
+
+tasks:
+  - id: t
+    type: io.kestra.plugin.core.http.Request
+
+pluginDefaults:
+  - type: io.kestra.core.tasks.http.Request
+    values:
+      uri: https://x
+`
+        const aliasOffsetAt = (lineNumber: number, column: number): number => {
+            const lines = aliasFlow.split("\n")
+            let offset = 0
+            for (let i = 0; i < lineNumber - 1; i++) {
+                offset += lines[i].length + 1
+            }
+            return offset + (column - 1)
+        }
+        const resolver = (type: string) =>
+            type === "io.kestra.core.tasks.http.Request"
+                ? "io.kestra.plugin.core.http.Request"
+                : type
+        const markers = [{message: 'Missing property "uri".', startLineNumber: 5, startColumn: 5}]
+
+        // Without the resolver the raw types differ, so the marker is kept...
+        expect(filterPluginDefaultMarkers(markers, aliasFlow, aliasOffsetAt)).toEqual(markers)
+        // ...with the resolver the canonical types match and the marker is suppressed.
+        expect(filterPluginDefaultMarkers(markers, aliasFlow, aliasOffsetAt, resolver)).toEqual([])
     })
 })

@@ -46,20 +46,38 @@ export function parseFlowPluginDefaults(source: string): FlowPluginDefault[] {
  * equals the plugin type, or is a prefix of it (e.g. {@code io.kestra.plugin.core.http} matches
  * {@code io.kestra.plugin.core.http.Request}).</p>
  *
- * @param pluginType the {@code type} of the task/trigger under inspection
- * @param property   the property reported as missing by the schema validator
- * @param defaults   the flow-level plugin defaults
+ * <p>When an {@code aliasResolver} is provided, both the plugin type and the default type are also
+ * compared in their canonical form, mirroring {@code PluginDefaultService#addAliases} which resolves
+ * an alias default to its canonical class before merging. The resolver should map a (possibly aliased)
+ * type to its canonical class name, returning the input unchanged when it is not an alias.</p>
+ *
+ * @param pluginType    the {@code type} of the task/trigger under inspection
+ * @param property      the property reported as missing by the schema validator
+ * @param defaults      the flow-level plugin defaults
+ * @param aliasResolver optional resolver from an alias type to its canonical class name
  */
 export function pluginDefaultProvidesProperty(
     pluginType: string,
     property: string,
     defaults: FlowPluginDefault[],
+    aliasResolver?: (type: string) => string,
 ): boolean {
-    return defaults.some(
-        (entry) =>
-            (pluginType === entry.type || pluginType.startsWith(entry.type)) &&
-            Object.prototype.hasOwnProperty.call(entry.values, property),
-    )
+    const resolve = (type: string) => aliasResolver?.(type) ?? type
+    const resolvedPluginType = resolve(pluginType)
+
+    return defaults.some((entry) => {
+        if (!Object.prototype.hasOwnProperty.call(entry.values, property)) {
+            return false
+        }
+        if (pluginType === entry.type || pluginType.startsWith(entry.type)) {
+            return true
+        }
+        const resolvedEntryType = resolve(entry.type)
+        return (
+            resolvedPluginType === resolvedEntryType ||
+            resolvedPluginType.startsWith(resolvedEntryType)
+        )
+    })
 }
 
 /**
@@ -106,4 +124,56 @@ export function findEnclosingPluginType(source: string, offset: number): string 
         /* ignore parse/localize errors and keep the original marker */
     }
     return undefined
+}
+
+/**
+ * The minimal shape of a monaco marker needed to decide whether it should be suppressed.
+ */
+export interface SuppressibleMarker {
+    message: string;
+    startLineNumber: number;
+    startColumn: number;
+}
+
+/**
+ * Returns the subset of {@code markers} that should remain after suppressing
+ * "missing required property" diagnostics that are covered by the flow's {@code pluginDefaults}.
+ *
+ * <p>This is the pure decision logic shared by the monaco marker hook. A marker is dropped only when
+ * it is a missing-required-property diagnostic <em>and</em> a flow-level plugin default matching the
+ * enclosing task/trigger type actually supplies that property. Every other marker — including genuine
+ * missing-required errors with no matching default — is kept untouched.</p>
+ *
+ * @param markers       the markers currently reported by the YAML schema validator
+ * @param source        the raw YAML flow source the markers refer to
+ * @param offsetAt      maps a (line, column) marker position to a character offset in {@code source}
+ * @param aliasResolver optional resolver from an alias type to its canonical class name
+ * @return the markers to keep
+ */
+export function filterPluginDefaultMarkers<T extends SuppressibleMarker>(
+    markers: T[],
+    source: string,
+    offsetAt: (lineNumber: number, column: number) => number,
+    aliasResolver?: (type: string) => string,
+): T[] {
+    const defaults = parseFlowPluginDefaults(source)
+    if (!defaults.length) {
+        return markers
+    }
+
+    return markers.filter((marker) => {
+        const property = extractMissingRequiredProperty(marker.message)
+        if (!property) {
+            return true
+        }
+        const pluginType = findEnclosingPluginType(
+            source,
+            offsetAt(marker.startLineNumber, marker.startColumn),
+        )
+        if (!pluginType) {
+            return true
+        }
+        // Drop the marker only when a matching default actually supplies the property.
+        return !pluginDefaultProvidesProperty(pluginType, property, defaults, aliasResolver)
+    })
 }

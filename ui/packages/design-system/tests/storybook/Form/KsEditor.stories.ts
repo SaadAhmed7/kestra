@@ -1,5 +1,6 @@
 import type {Meta, StoryObj} from "@storybook/vue3-vite"
 import {ref} from "vue"
+import {within, expect, waitFor} from "storybook/test"
 import KsEditor from "../../../src/components/Form/KsEditor.vue"
 
 const meta: Meta<typeof KsEditor> = {
@@ -30,6 +31,23 @@ tasks:
     message: "Hello, {{ flow.id }}!"
 `
 
+// A flow whose required `uri` is not written on the task but is supplied by a matching
+// pluginDefault. The app's yamlLanguageConfigurator post-filters the otherwise-false
+// "Missing property uri" schema diagnostic for this exact case.
+const PLUGIN_DEFAULTS_SAMPLE = `id: valid_workflow
+namespace: io.kestra.blx
+
+tasks:
+  - id: test_utl
+    type: io.kestra.plugin.core.http.Request
+
+pluginDefaults:
+  - type: io.kestra.plugin.core.http.Request
+    values:
+      method: "GET"
+      uri: https://ready911.com
+`
+
 const JSON_SAMPLE = `{
   "name": "kestra",
   "version": "1.0.0",
@@ -56,6 +74,24 @@ export const FlowSchema: Story = {
         template: "<div style=\"padding:24px;height:420px\"><ks-editor v-model=\"value\" lang=\"yaml\" schemaType=\"flow\" /></div>",
     }),
     parameters: {docs: {description: {story: "With `schemaType=flow`, pebble `{{ }}` highlighting is auto-enabled and duplicate task-id markers are added on parse errors. Autocompletion is wired by the consumer via `configureLanguage` prop."}}},
+}
+
+export const PluginDefaultsRequired: Story = {
+    render: () => ({
+        components: {KsEditor},
+        setup() { return {value: ref(PLUGIN_DEFAULTS_SAMPLE)} },
+        template: "<div style=\"padding:24px;height:420px\"><ks-editor v-model=\"value\" lang=\"yaml\" schemaType=\"flow\" /></div>",
+    }),
+    parameters: {docs: {description: {story: "Flow where the required `uri` of the http `Request` task is provided via `pluginDefaults` rather than on the task. In the app, `yamlLanguageConfigurator` suppresses the false \"Missing property uri\" schema diagnostic for properties a matching pluginDefault supplies (the marker-suppression decision is unit-tested in `pluginDefaultsDiagnostics.spec.ts`). This story documents the scenario and smoke-tests that the editor mounts with the source; marker assertions are not made here because the design-system `KsEditor` does not wire flow validation (that lives in the app via `configureLanguage`)."}}},
+    play: async ({canvasElement}: {canvasElement: HTMLElement}) => {
+        const canvas = within(canvasElement)
+        // The hidden textarea mirrors the editor's model value, giving a stable, non-virtualized assertion target.
+        await waitFor(() => {
+            const textarea = canvas.getByTestId("monaco-editor-hidden-synced-textarea") as HTMLTextAreaElement
+            expect(textarea.value).toContain("type: io.kestra.plugin.core.http.Request")
+            expect(textarea.value).toContain("pluginDefaults:")
+        })
+    },
 }
 
 export const Inline: Story = {

@@ -20,12 +20,7 @@ import {
 } from "./pebbleLanguageConfigurator"
 import {usePluginsStore} from "../../../stores/plugins"
 import {useBlueprintsStore} from "../../../stores/blueprints"
-import {
-    parseFlowPluginDefaults,
-    pluginDefaultProvidesProperty,
-    extractMissingRequiredProperty,
-    findEnclosingPluginType,
-} from "./pluginDefaultsDiagnostics"
+import {filterPluginDefaultMarkers} from "./pluginDefaultsDiagnostics"
 import * as Utils from "../../../utils/utils"
 import {makeToast} from "../../../utils/toast"
 import {provideEditorArtifacts, ARTIFACT_COPY_COMMAND} from "../artifacts"
@@ -392,6 +387,10 @@ export class YamlLanguageConfigurator extends AbstractLanguageConfigurator {
      * missing even though the backend {@link io.kestra.core.services.PluginDefaultService} injects it
      * before the flow runs. This post-filters those false positives — and only those: a missing
      * required property with no matching default is left untouched, preserving genuine validation.</p>
+     *
+     * <p>{@code filterPluginDefaultMarkers} accepts an optional alias resolver (canonicalizing aliased
+     * plugin types before matching). It is intentionally omitted here because the frontend does not yet
+     * expose an alias-to-canonical map; wiring it is a follow-up once that data is available.</p>
      */
     private registerPluginDefaultsDiagnosticsFilter() {
         if (pluginDefaultsMarkerFilterRegistered) {
@@ -422,28 +421,11 @@ export class YamlLanguageConfigurator extends AbstractLanguageConfigurator {
                     continue
                 }
 
-                const source = model.getValue()
-                const defaults = parseFlowPluginDefaults(source)
-                if (!defaults.length) {
-                    continue
-                }
-
-                const kept = yamlMarkers.filter((marker) => {
-                    const property = extractMissingRequiredProperty(marker.message)
-                    if (!property) {
-                        return true
-                    }
-                    const offset = model.getOffsetAt({
-                        lineNumber: marker.startLineNumber,
-                        column: marker.startColumn,
-                    })
-                    const pluginType = findEnclosingPluginType(source, offset)
-                    if (!pluginType) {
-                        return true
-                    }
-                    // Drop the marker only when a matching default actually supplies the property.
-                    return !pluginDefaultProvidesProperty(pluginType, property, defaults)
-                })
+                const kept = filterPluginDefaultMarkers(
+                    yamlMarkers,
+                    model.getValue(),
+                    (lineNumber, column) => model.getOffsetAt({lineNumber, column}),
+                )
 
                 // Nothing suppressed: skip the reset to avoid a needless marker-change loop.
                 if (kept.length === yamlMarkers.length) {
