@@ -20,6 +20,12 @@ import {
 } from "./pebbleLanguageConfigurator"
 import {usePluginsStore} from "../../../stores/plugins"
 import {useBlueprintsStore} from "../../../stores/blueprints"
+import {
+    parseFlowPluginDefaults,
+    pluginDefaultProvidesProperty,
+    extractMissingRequiredProperty,
+    findEnclosingPluginType,
+} from "./pluginDefaultsDiagnostics"
 import * as Utils from "../../../utils/utils"
 import {makeToast} from "../../../utils/toast"
 import {provideEditorArtifacts, ARTIFACT_COPY_COMMAND} from "../artifacts"
@@ -31,6 +37,11 @@ import CompletionList = monaco.languages.CompletionList;
 import CompletionItem = languages.CompletionItem;
 import CompletionContext = languages.CompletionContext;
 import CancellationToken = monaco.CancellationToken;
+
+// monaco-yaml publishes its schema-validation diagnostics under this marker owner.
+const MONACO_YAML_MARKER_OWNER = "yaml"
+// The marker filter is a global monaco hook; register it only once across editor instances.
+let pluginDefaultsMarkerFilterRegistered = false
 
 type TaskLike = Record<string, unknown>;
 
@@ -128,6 +139,8 @@ export class YamlLanguageConfigurator extends AbstractLanguageConfigurator {
             format: true,
             schemas: yamlSchemas(),
         })
+
+        this.registerPluginDefaultsDiagnosticsFilter()
 
         const yamlCompletion = (
             StandaloneServices.get(ILanguageFeaturesService).completionProvider
@@ -368,6 +381,83 @@ export class YamlLanguageConfigurator extends AbstractLanguageConfigurator {
                 suggestions,
             }
         }
+    }
+
+    /**
+     * Suppresses "missing required property" diagnostics for task/trigger properties that are
+     * supplied through the flow's {@code pluginDefaults}.
+     *
+     * <p>monaco-yaml validates each task object in isolation against the plugin schema and has no
+     * knowledge of the sibling {@code pluginDefaults} section, so it reports a required property as
+     * missing even though the backend {@link io.kestra.core.services.PluginDefaultService} injects it
+     * before the flow runs. This post-filters those false positives — and only those: a missing
+     * required property with no matching default is left untouched, preserving genuine validation.</p>
+     */
+    private registerPluginDefaultsDiagnosticsFilter() {
+        if (pluginDefaultsMarkerFilterRegistered) {
+            return
+        }
+        pluginDefaultsMarkerFilterRegistered = true
+
+        // Re-entrancy guard: setModelMarkers below re-fires onDidChangeMarkers.
+        let isFiltering = false
+
+        monaco.editor.onDidChangeMarkers((resources) => {
+            if (isFiltering) {
+                return
+            }
+
+            for (const resource of resources) {
+                const model = monaco.editor.getModel(resource)
+                // Only flow editors expose pluginDefaults at the top level.
+                if (!model || !model.uri.path.includes("flow-")) {
+                    continue
+                }
+
+                const yamlMarkers = monaco.editor.getModelMarkers({
+                    resource,
+                    owner: MONACO_YAML_MARKER_OWNER,
+                })
+                if (!yamlMarkers.length) {
+                    continue
+                }
+
+                const source = model.getValue()
+                const defaults = parseFlowPluginDefaults(source)
+                if (!defaults.length) {
+                    continue
+                }
+
+                const kept = yamlMarkers.filter((marker) => {
+                    const property = extractMissingRequiredProperty(marker.message)
+                    if (!property) {
+                        return true
+                    }
+                    const offset = model.getOffsetAt({
+                        lineNumber: marker.startLineNumber,
+                        column: marker.startColumn,
+                    })
+                    const pluginType = findEnclosingPluginType(source, offset)
+                    if (!pluginType) {
+                        return true
+                    }
+                    // Drop the marker only when a matching default actually supplies the property.
+                    return !pluginDefaultProvidesProperty(pluginType, property, defaults)
+                })
+
+                // Nothing suppressed: skip the reset to avoid a needless marker-change loop.
+                if (kept.length === yamlMarkers.length) {
+                    continue
+                }
+
+                isFiltering = true
+                try {
+                    monaco.editor.setModelMarkers(model, MONACO_YAML_MARKER_OWNER, kept)
+                } finally {
+                    isFiltering = false
+                }
+            }
+        })
     }
 
     configureAutoCompletion(
