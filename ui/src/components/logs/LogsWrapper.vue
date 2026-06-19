@@ -28,13 +28,30 @@
                         :levels="VALUES.LEVELS"
                         :level="effectiveLogLevel?.value"
                         :levelLabel="t('filter.level_log_executions.label')"
-                        :showInterval="false"
+                        :showInterval="true"
+                        :intervals="quickIntervals"
+                        :intervalLabel="t('filter.timeRange_log.label')"
+                        :timeRange="selectedTimeRange"
+                        :brushStart="brushStart"
+                        :brushEnd="brushEnd"
                         @update:level="selectLevel"
+                        @update:timeRange="selectTimeRange"
+                        @update:customDates="onCustomDates"
                     />
                 </template>
 
                 <template v-if="showStatChart() && logsStore.logs && logsStore.logs.length > 0" #top>
-                    <Sections ref="dashboard" :charts :dashboard="{id: 'default', charts: []}" showDefault class="mb-4" />
+                    <Sections
+                        ref="dashboard"
+                        :charts
+                        :dashboard="{id: 'default', charts: []}"
+                        showDefault
+                        class="mb-4"
+                        selectableChartId="logs_timeseries"
+                        :brushStart="brushStart"
+                        :brushEnd="brushEnd"
+                        @chart-select="onChartSelect"
+                    />
                 </template>
 
                 <template #table>
@@ -150,6 +167,7 @@
     import LogDisplaySettings from "./LogDisplaySettings.vue"
     import LogLevelNavigator from "./LogLevelNavigator.vue"
     import {buildValueFilterQuery} from "./logValueFilter"
+    import {buildBrushTimeRangeQuery} from "../../utils/logsBrushMappers"
 
     const props = withDefaults(defineProps<{
         logLevel?: string;
@@ -240,6 +258,10 @@
     // Kind has no bespoke handling here: when no kind filter is in the URL the backend defaults to
     // NORMAL only, and an explicit kind chip flows through `...routeFilters` like any other filter.
     const selectedTimeRange = computed(() => {
+        if (route.query.startDate || route.query.endDate) {
+            return "CUSTOM"
+        }
+
         if (route.query.timeRange) {
             return route.query.timeRange as string
         }
@@ -254,6 +276,26 @@
 
         return rawValue as string | undefined
     })
+    const brushStart = computed(() => route.query.startDate as string | undefined)
+    const brushEnd = computed(() => route.query.endDate as string | undefined)
+
+    function onChartSelect(event: {chartId: string; payload: {startDate: string; endDate: string} | null}) {
+        if (event.payload) {
+            const query = buildBrushTimeRangeQuery(
+                route.query as Record<string, string | string[] | undefined>,
+                event.payload.startDate,
+                event.payload.endDate,
+                pageKey,
+            )
+            router.push({query})
+        } else {
+            const query: Record<string, any> = {...route.query}
+            delete query.startDate
+            delete query.endDate
+            router.push({query})
+        }
+    }
+
     const flowId = computed(() => route.params.id)
     const routeNamespace = computed(() => route.params.namespace ?? route.params.id)
     const charts = computed(() => [
@@ -362,6 +404,28 @@
             .forEach((key) => delete query[key])
         query["filters[level][GREATER_THAN_OR_EQUAL_TO]"] = level
         query[pageKey] = "1"
+        router.push({query})
+    }
+
+    const selectTimeRange = (value: string) => {
+        const query: Record<string, any> = {...route.query}
+        delete query.startDate
+        delete query.endDate
+        Object.keys(query)
+            .filter((key) => key.startsWith("filters[timeRange]"))
+            .forEach((key) => delete query[key])
+        query.timeRange = value
+        query[pageKey] = "1"
+        router.push({query})
+    }
+
+    const onCustomDates = ({startDate, endDate}: {startDate: string; endDate: string}) => {
+        const query = buildBrushTimeRangeQuery(
+            route.query as Record<string, string | string[] | undefined>,
+            startDate,
+            endDate,
+            pageKey,
+        )
         router.push({query})
     }
 

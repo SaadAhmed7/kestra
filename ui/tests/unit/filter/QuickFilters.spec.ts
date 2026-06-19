@@ -1,6 +1,10 @@
-import {describe, expect, it} from "vitest"
+import {describe, expect, it, vi} from "vitest"
 import {mount} from "@vue/test-utils"
 import QuickFilters from "../../../src/components/filter/QuickFilters.vue"
+
+vi.mock("vue-i18n", () => ({
+    useI18n: () => ({t: (key: string) => key}),
+}))
 
 const KsSegmentedStub = {
     name: "KsSegmented",
@@ -12,7 +16,14 @@ const KsSegmentedStub = {
 const mountFilters = (props = {}) =>
     mount(QuickFilters, {
         props: {levels: [], intervals: [], ...props},
-        global: {stubs: {KsSegmented: KsSegmentedStub}},
+        global: {
+            stubs: {
+                KsSegmented: KsSegmentedStub,
+                KsDatePicker: {template: "<div class=\"ks-date-picker-stub\" />"},
+                KsButton: {template: "<button class=\"ks-button-stub\"><slot /></button>"},
+                KsPopover: {template: "<div class=\"ks-popover-stub\"><slot name=\"reference\" /><slot /></div>"},
+            },
+        },
     })
 
 const intervalSegment = (wrapper: ReturnType<typeof mountFilters>) =>
@@ -74,7 +85,9 @@ describe("QuickFilters", () => {
 
         const segment = intervalSegment(wrapper)
         expect(segment).toBeTruthy()
-        expect(segment!.props("options")).toEqual(intervals)
+        const opts = segment!.props("options") as Array<{label: string; value: string}>
+        expect(opts.slice(0, -1)).toEqual(intervals)
+        expect(opts[opts.length - 1].value).toBe("CUSTOM")
         expect(segment!.props("modelValue")).toBe("PT24H")
     })
 
@@ -147,5 +160,18 @@ describe("QuickFilters", () => {
         await wrapper.find("[data-test=\"quick-filters-state-RUNNING\"]").trigger("click")
 
         expect(wrapper.emitted("update:state")).toEqual([["RUNNING"]])
+    })
+
+    it("opens the custom date picker popover when CUSTOM is selected", async () => {
+        const wrapper = mountFilters({
+            intervals: [{label: "Last 1 hour", value: "PT1H"}],
+            timeRange: "PT1H",
+        })
+
+        const segment = intervalSegment(wrapper)
+        segment!.vm.$emit("change", "CUSTOM")
+        await wrapper.vm.$nextTick()
+
+        expect(wrapper.emitted("update:timeRange")).toBeFalsy()
     })
 })

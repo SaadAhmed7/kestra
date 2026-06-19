@@ -63,6 +63,8 @@
                             :dashboardId="dashboard.id"
                             :filters
                             :showDefault="props.showDefault"
+                            v-bind="chartProps(chart)"
+                            @select="(payload: any) => emit('chart-select', {chartId: chart.id, payload})"
                         />
                     </div>
                 </div>
@@ -97,12 +99,28 @@
         refreshCharts,
     })
 
+    const emit = defineEmits<{
+        "chart-select": [{chartId: string; payload: {startDate: string; endDate: string} | null}]
+    }>()
+
     const props = defineProps<{
         dashboard: Dashboard;
         charts?: Chart[];
         showDefault?: boolean;
         padding?: boolean;
+        selectableChartId?: string;
+        brushStart?: string;
+        brushEnd?: string;
     }>()
+
+    function chartProps(chart: Chart): Record<string, unknown> {
+        if (chart.id !== props.selectableChartId) return {}
+        return {
+            selectable: true,
+            brushStart: props.brushStart,
+            brushEnd: props.brushEnd,
+        }
+    }
 
     const labels = (chart: Chart) => ({
         title: getChartTitle(chart),

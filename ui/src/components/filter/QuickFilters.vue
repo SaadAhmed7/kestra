@@ -2,13 +2,62 @@
     <div class="quick-filters">
         <div v-if="showInterval" class="quick-filters__group">
             <span v-if="intervalLabel" class="quick-filters__label">{{ intervalLabel }}:</span>
-            <KsSegmented
-                data-test="quick-filters-interval"
-                :modelValue="timeRange"
-                :options="intervals"
-                size="default"
-                @change="emit('update:timeRange', String($event))"
-            />
+            <div class="quick-filters__interval-wrap">
+                <KsSegmented
+                    data-test="quick-filters-interval"
+                    :modelValue="timeRange"
+                    :options="intervalsWithCustom"
+                    size="default"
+                    @change="onIntervalChange"
+                />
+
+                <KsPopover
+                    v-if="timeRange === 'CUSTOM'"
+                    ref="customPopoverRef"
+                    :visible="customPopoverOpen"
+                    trigger="click"
+                    placement="bottom-start"
+                    :showArrow="false"
+                    @update:visible="customPopoverOpen = $event"
+                >
+                    <template #reference>
+                        <span class="custom-popover-anchor" />
+                    </template>
+                    <div class="custom-date-picker">
+                        <div class="custom-date-picker__row">
+                            <span class="custom-date-picker__label">{{ t("from") }}</span>
+                            <KsDatePicker
+                                v-model="customStart"
+                                type="datetime"
+                                :placeholder="t('start date')"
+                                format="YYYY-MM-DD HH:mm"
+                                valueFormat="YYYY-MM-DDTHH:mm:ssZ"
+                                class="custom-date-picker__input"
+                            />
+                        </div>
+                        <div class="custom-date-picker__row">
+                            <span class="custom-date-picker__label">{{ t("to") }}</span>
+                            <KsDatePicker
+                                v-model="customEnd"
+                                type="datetime"
+                                :placeholder="t('end date')"
+                                format="YYYY-MM-DD HH:mm"
+                                valueFormat="YYYY-MM-DDTHH:mm:ssZ"
+                                class="custom-date-picker__input"
+                            />
+                        </div>
+                        <div class="custom-date-picker__actions">
+                            <KsButton size="small" @click="customPopoverOpen = false">{{ t("cancel") }}</KsButton>
+                            <KsButton
+                                type="primary"
+                                size="small"
+                                :disabled="!customStart || !customEnd"
+                                @click="applyCustomDates"
+                            >{{ t("save") }}</KsButton>
+                        </div>
+                    </div>
+                </KsPopover>
+            </div>
         </div>
 
         <div v-if="showLevel" class="quick-filters__group">
@@ -70,9 +119,13 @@
 </template>
 
 <script setup lang="ts">
+    import {ref, computed, watch} from "vue"
+    import {useI18n} from "vue-i18n"
     import {EXECUTION_STATUSES} from "@kestra-io/design-system"
 
-    withDefaults(defineProps<{
+    const {t} = useI18n()
+
+    const props = withDefaults(defineProps<{
         levels?: Array<{label: string; value: string}>;
         intervals?: Array<{label: string; value: string}>;
         states?: Array<{label: string; value: string}>;
@@ -85,6 +138,8 @@
         intervalLabel?: string;
         levelLabel?: string;
         stateLabel?: string;
+        brushStart?: string;
+        brushEnd?: string;
     }>(), {
         levels: () => [],
         intervals: () => [],
@@ -98,13 +153,49 @@
         intervalLabel: undefined,
         levelLabel: undefined,
         stateLabel: undefined,
+        brushStart: undefined,
+        brushEnd: undefined,
     })
 
     const emit = defineEmits<{
         "update:level": [value: string];
         "update:timeRange": [value: string];
         "update:state": [value: string];
+        "update:customDates": [{startDate: string; endDate: string}];
     }>()
+
+    const customPopoverOpen = ref(false)
+    const customStart = ref<string | undefined>(undefined)
+    const customEnd = ref<string | undefined>(undefined)
+
+    const intervalsWithCustom = computed(() => [
+        ...props.intervals,
+        {label: t("datepicker.custom"), value: "CUSTOM"},
+    ])
+
+    watch(() => props.brushStart, (val) => {
+        if (val) customStart.value = val
+    }, {immediate: true})
+
+    watch(() => props.brushEnd, (val) => {
+        if (val) customEnd.value = val
+    }, {immediate: true})
+
+    function onIntervalChange(value: string | number | boolean) {
+        const v = String(value)
+        if (v === "CUSTOM") {
+            customPopoverOpen.value = true
+            return
+        }
+        customPopoverOpen.value = false
+        emit("update:timeRange", v)
+    }
+
+    function applyCustomDates() {
+        if (!customStart.value || !customEnd.value) return
+        customPopoverOpen.value = false
+        emit("update:customDates", {startDate: customStart.value, endDate: customEnd.value})
+    }
 
     const levelStyle = (value: string) => {
         const key = value.toLowerCase()
@@ -153,6 +244,12 @@
             gap: var(--ks-spacing-2);
             min-width: 0;
             max-width: 100%;
+        }
+
+        &__interval-wrap {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
         }
 
         &__label {
@@ -223,6 +320,44 @@
             align-items: center;
             color: var(--level-color);
             flex-shrink: 0;
+        }
+    }
+
+    .custom-popover-anchor {
+        position: absolute;
+        width: 0;
+        height: 0;
+        pointer-events: none;
+    }
+
+    .custom-date-picker {
+        display: flex;
+        flex-direction: column;
+        gap: var(--ks-spacing-3);
+        padding: var(--ks-spacing-3);
+        min-width: 280px;
+
+        &__row {
+            display: flex;
+            align-items: center;
+            gap: var(--ks-spacing-2);
+        }
+
+        &__label {
+            font-size: var(--ks-font-size-sm);
+            color: var(--ks-text-secondary);
+            white-space: nowrap;
+            min-width: 32px;
+        }
+
+        &__input {
+            flex: 1;
+        }
+
+        &__actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: var(--ks-spacing-2);
         }
     }
 </style>
