@@ -120,7 +120,7 @@ public class WebhookService {
 
         // Add labels
         List<Label> labels = new ArrayList<>();
-        labels.add(new Label(Label.FROM, "trigger"));
+        labels.add(new Label(Label.FROM, Label.FromLabel.TRIGGER.value));
         labels.addAll(LabelService.labelsExcludingSystem(flow.getLabels()));
         if (labels.stream().noneMatch(label -> label.key().equals(CORRELATION_ID))) {
             labels.add(new Label(CORRELATION_ID, execution.getId()));

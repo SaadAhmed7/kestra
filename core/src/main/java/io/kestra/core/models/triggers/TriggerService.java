@@ -139,7 +139,7 @@ public abstract class TriggerService {
 
     private static List<Label> buildLabels(String id, AbstractTrigger trigger, ConditionContext conditionContext) {
         List<Label> labels = new ArrayList<>(ListUtils.emptyOnNull(trigger.getLabels()));
-        labels.add(new Label(Label.FROM, "trigger"));
+        labels.add(new Label(Label.FROM, Label.FromLabel.TRIGGER.value));
         if (labels.stream().noneMatch(label -> Label.CORRELATION_ID.equals(label.key()))) {
             labels.add(new Label(Label.CORRELATION_ID, id));
         }
