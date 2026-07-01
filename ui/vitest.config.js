@@ -60,8 +60,23 @@ export default defineConfig({
         ],
     },
     test: {
+        // Vitest only ever resolves coverage from this root config, never from
+        // an individual project's own `test.coverage` field (each project's
+        // `coverage` is silently ignored once `test.projects` is used) — so
+        // this is the one place any coverage.include/exclude pattern belongs.
+        // Verified by patching @vitest/coverage-v8's isIncluded() to log the
+        // exclude array it actually matches against: a project-level
+        // `test.coverage.exclude` never showed up in it.
         coverage: {
-            exclude: ["**/*.json"],
+            exclude: [
+                "stylelint.config.mjs",
+                "storybook-static/**",
+                "**/.storybook/**",
+                "**/*.stories.*",
+                "**/*.spec.{ts,tsx}",
+                "**/*.d.ts",
+                "**/*.json",
+            ],
         },
         projects: [
             "./vitest.config.unit.js",
@@ -84,15 +99,6 @@ export default defineConfig({
                             {
                                 browser: "chromium",
                             },
-                        ],
-                    },
-                    coverage: {
-                        reporter: ["text", "html"],
-                        exclude: [
-                            "**/*.stories.{ts,tsx}",
-                            "**/*.spec.{ts,tsx}",
-                            "**/node_modules/**",
-                            "**/*.json",
                         ],
                     },
                 },

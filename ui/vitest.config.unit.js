@@ -26,19 +26,9 @@ export default defineProject({
             "node_modules/**",
             "tests/unit/**/translation.spec.js",
         ],
-        coverage: {
-            include: [
-                "src/**/*.{js,ts,vue}",
-            ],
-            exclude: [
-                "stylelint.config.mjs",
-                "storybook-static/**",
-                "**/.storybook/**",
-                "**/*.stories.*",
-                "**/*.d.ts",
-                "**/*.json",
-            ],
-        },
+        // `coverage` is intentionally not set here — Vitest ignores a
+        // project's own `test.coverage` once `test.projects` is used; see
+        // the coverage block in the root vitest.config.js.
     },
     define: {
         "window.KESTRA_BASE_PATH": "/ui/",
