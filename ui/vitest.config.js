@@ -39,14 +39,23 @@ console.warn = (...args) => {
 // These are harmless cross-package sourcemap references that flood test output.
 const isElementPlusSourcemapWarning = (s) =>
     /sourcemap/i.test(s) && s.includes("points to a source file outside its package") && s.includes("node_modules")
+
+// @vitest/coverage-v8 remaps every module hit by V8's raw coverage profile —
+// including non-JS assets (`.json`) that only exist as ES modules at runtime
+// via Vite's JSON transform. Rolldown can't parse JSON as JS, so this always
+// fails; vitest already handles it by excluding the file from the report, but
+// logs the (harmless) parse error first. `coverage.exclude` doesn't prevent
+// this because the exclude filter runs after this remap step, not before it.
+const isJsonCoverageParseWarning = (s) =>
+    s.includes("?import. Excluding it from coverage.") || s.includes("[RolldownError]")
 const origStderrWrite = process.stderr.write.bind(process.stderr)
 process.stderr.write = (chunk, ...rest) => {
-    if (typeof chunk === "string" && isElementPlusSourcemapWarning(chunk)) return true
+    if (typeof chunk === "string" && (isElementPlusSourcemapWarning(chunk) || isJsonCoverageParseWarning(chunk))) return true
     return origStderrWrite(chunk, ...rest)
 }
 const origStdoutWrite = process.stdout.write.bind(process.stdout)
 process.stdout.write = (chunk, ...rest) => {
-    if (typeof chunk === "string" && isElementPlusSourcemapWarning(chunk)) return true
+    if (typeof chunk === "string" && (isElementPlusSourcemapWarning(chunk) || isJsonCoverageParseWarning(chunk))) return true
     return origStdoutWrite(chunk, ...rest)
 }
 
