@@ -39,23 +39,14 @@ console.warn = (...args) => {
 // These are harmless cross-package sourcemap references that flood test output.
 const isElementPlusSourcemapWarning = (s) =>
     /sourcemap/i.test(s) && s.includes("points to a source file outside its package") && s.includes("node_modules")
-
-// @vitest/coverage-v8 remaps every module hit by V8's raw coverage profile —
-// including non-JS assets (`.json`) that only exist as ES modules at runtime
-// via Vite's JSON transform. Rolldown can't parse JSON as JS, so this always
-// fails; vitest already handles it by excluding the file from the report, but
-// logs the (harmless) parse error first. `coverage.exclude` doesn't prevent
-// this because the exclude filter runs after this remap step, not before it.
-const isJsonCoverageParseWarning = (s) =>
-    s.includes("?import. Excluding it from coverage.") || s.includes("[RolldownError]")
 const origStderrWrite = process.stderr.write.bind(process.stderr)
 process.stderr.write = (chunk, ...rest) => {
-    if (typeof chunk === "string" && (isElementPlusSourcemapWarning(chunk) || isJsonCoverageParseWarning(chunk))) return true
+    if (typeof chunk === "string" && isElementPlusSourcemapWarning(chunk)) return true
     return origStderrWrite(chunk, ...rest)
 }
 const origStdoutWrite = process.stdout.write.bind(process.stdout)
 process.stdout.write = (chunk, ...rest) => {
-    if (typeof chunk === "string" && (isElementPlusSourcemapWarning(chunk) || isJsonCoverageParseWarning(chunk))) return true
+    if (typeof chunk === "string" && isElementPlusSourcemapWarning(chunk)) return true
     return origStdoutWrite(chunk, ...rest)
 }
 
@@ -68,10 +59,10 @@ export default defineConfig({
             ...resolvedViteConfig.resolve.alias,
         ],
     },
-    coverage: {
-        exclude: ["**/*.json"],
-    },
     test: {
+        coverage: {
+            exclude: ["**/*.json"],
+        },
         projects: [
             "./vitest.config.unit.js",
             mergeConfig(resolvedViteConfig, {
@@ -85,14 +76,6 @@ export default defineConfig({
                 test: {
                     name: "storybook",
                     setupFiles: ["./.storybook/vitest.setup.js"],
-                    // The Playwright browser session occasionally drops mid-run while
-                    // tearing down a story ("Browser connection was closed while running
-                    // tests" / "[birpc] rpc is closed"). This is CI-only flakiness in the
-                    // browser transport, not a test regression — every test that actually
-                    // ran still passed — but vitest still reports it as an unhandled error
-                    // and fails the run. Downgrade it to a warning so a transport hiccup at
-                    // teardown doesn't fail the whole workflow.
-                    dangerouslyIgnoreUnhandledErrors: true,
                     browser: {
                         enabled: true,
                         headless: true,
