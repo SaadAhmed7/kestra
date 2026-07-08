@@ -83,7 +83,7 @@ class LoopExecutionEventMessageHandlerTest {
         );
 
         // When
-        var loopRun = new LoopRun(execution, "loop", loopTaskRunId,  2, null, "c", null);
+        var loopRun = new LoopRun(execution, "loop", loopTaskRunId, 2, null, "c", null);
         var message = new LoopExecutionEvent(loopRun, execution.getId(), State.Type.SUCCESS, null);
         var maybeExecutor = harness.loopExecutionEventMessageHandler().handle(message);
 
@@ -249,11 +249,13 @@ class LoopExecutionEventMessageHandlerTest {
             .flowId(execution.getFlowId())
             .taskId("loop")
             .state(new State().withState(State.Type.RUNNING))
-            .attempts(List.of(
-                TaskRunAttempt.builder()
-                    .state(new State().withState(State.Type.RUNNING))
-                    .build()
-            ))
+            .attempts(
+                List.of(
+                    TaskRunAttempt.builder()
+                        .state(new State().withState(State.Type.RUNNING))
+                        .build()
+                )
+            )
             .build();
     }
 }
