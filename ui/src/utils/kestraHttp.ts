@@ -48,9 +48,9 @@ export interface KestraHttpError extends Error {
         statusText: string
         headers: Record<string, string>
         request: {responseURL: string}
-        config: {method: string; url: string; showMessageOnError?: boolean}
+        config: {method: string; url: string; showMessageOnError?: boolean; showErrorPageOn404?: boolean}
     }
-    config?: {method: string; url: string; showMessageOnError?: boolean}
+    config?: {method: string; url: string; showMessageOnError?: boolean; showErrorPageOn404?: boolean}
 }
 
 export interface KestraHttpOptions {
@@ -120,9 +120,11 @@ export function setupKestraHttp(
     function handleErrorCentrally(error: KestraHttpError): KestraHttpError {
         const status = error.status
         if (status === 404) {
-            // Let callers handle an expected 404 locally (e.g. rehydrating a Copilot thread that no
-            // longer exists) by passing `showMessageOnError: false`, instead of the global not-found page.
-            if (error.config?.showMessageOnError !== false) {
+            // Let callers opt out of the global not-found page for an expected 404 — either via the
+            // generic `showMessageOnError: false` (e.g. rehydrating a Copilot thread that no longer
+            // exists) or the 404-specific `showErrorPageOn404: false` (e.g. a doc fetch for an
+            // un-installed plugin type). Either flag set to false suppresses the page.
+            if (error.config?.showMessageOnError !== false && error.config?.showErrorPageOn404 !== false) {
                 onError("error", error)
             }
         } else if (status !== 401 && status !== 400 && error.response?.data && error.config?.showMessageOnError !== false) {
@@ -203,6 +205,7 @@ export function setupKestraHttp(
                 method: request?.method ?? "",
                 url: request?.url ?? "",
                 showMessageOnError: (opts as {showMessageOnError?: boolean} | undefined)?.showMessageOnError,
+                showErrorPageOn404: (opts as {showErrorPageOn404?: boolean} | undefined)?.showErrorPageOn404,
             },
         }
         kestraError.config = kestraError.response.config

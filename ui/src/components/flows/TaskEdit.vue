@@ -206,7 +206,7 @@
         }
         taskBaseline.value = taskYaml.value
         if (props.task?.type) {
-            pluginsStore.load({cls: props.task.type})
+            pluginsStore.load({cls: props.task.type, silentOn404: true}).catch(() => undefined)
         }
     }
 
@@ -232,7 +232,7 @@
         if (newTask) {
             taskYaml.value = YAML_UTILS.stringify(newTask)
             if (newTask.type) {
-                await pluginsStore.load({cls: newTask.type})
+                await pluginsStore.load({cls: newTask.type, silentOn404: true}).catch(() => undefined)
             }
         } else {
             taskYaml.value = ""
@@ -242,7 +242,7 @@
     watch(taskYaml, () => {
         const task = YAML_UTILS.parse(taskYaml.value)
         if (task?.type && task.type !== type.value) {
-            pluginsStore.load({cls: task.type})
+            pluginsStore.load({cls: task.type, silentOn404: true}).catch(() => undefined)
             type.value = task.type
         }
     })
