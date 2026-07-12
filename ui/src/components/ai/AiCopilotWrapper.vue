@@ -164,20 +164,21 @@
     }
 
     .copilot-slide-enter-active {
-        transition: transform 0.45s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 0.15s ease;
+        transition: transform 220ms var(--ks-ease-out), opacity 150ms ease;
     }
 
     .copilot-slide-leave-active {
-        transition: transform 0.35s cubic-bezier(0.4, 0.0, 1, 1);
+        transition: transform 150ms var(--ks-ease-out), opacity 120ms ease;
     }
 
     .copilot-slide-enter-from {
         opacity: 0;
-        transform: scaleX(0.85);
+        transform: scale(0.96);
     }
 
     .copilot-slide-leave-to {
-        transform: scaleX(0.95);
+        opacity: 0;
+        transform: scale(0.98);
     }
 
     @media (max-width: 768px) {

@@ -223,6 +223,10 @@ body{
         border-radius: 4px;
         animation: skeleton-animation 3s infinite;
         height: 32px;
+
+        @media (prefers-reduced-motion: reduce) {
+            animation: none;
+        }
     }
 }
 

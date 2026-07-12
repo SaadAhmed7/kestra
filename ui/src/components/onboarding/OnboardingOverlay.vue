@@ -811,6 +811,10 @@
     :global(.onboarding-v2-highlight-pulse.kel-button) {
         animation: onboardingButtonPulse 1s ease-in-out infinite alternate;
         will-change: transform, box-shadow;
+
+        @media (prefers-reduced-motion: reduce) {
+            animation: none;
+        }
     }
 
     :global(html.dark .onboarding-v2-highlight-pulse) {

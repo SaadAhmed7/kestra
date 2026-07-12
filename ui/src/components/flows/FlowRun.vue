@@ -452,6 +452,10 @@
 
     .onboarding-glow {
         animation: glowAnimation 1s infinite alternate;
+
+        @media (prefers-reduced-motion: reduce) {
+            animation: none;
+        }
     }
 
     @keyframes glowAnimation {

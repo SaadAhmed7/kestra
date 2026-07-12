@@ -103,7 +103,7 @@
     cursor: pointer;
     background-color: $code-card-color;
     border: 1px solid $code-border-color;
-    transition: all 0.2s ease-in-out;
+    transition: background-color 150ms ease, border-color 150ms ease;
 
     &:hover {
         background-color: var(--ks-btn-secondary-bg-hover);

@@ -294,6 +294,10 @@
         box-shadow: 0 0.5rem 1.5rem rgba(15, 23, 42, 0.06);
         pointer-events: auto;
         animation: onboardingHintBorderSpin 3s linear infinite;
+
+        @media (prefers-reduced-motion: reduce) {
+            animation: none;
+        }
     }
 
     .onboarding-execute-hint__content {

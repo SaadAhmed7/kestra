@@ -56,6 +56,10 @@
     background-position: center center;
     animation: bg-spin 3s linear infinite;
 
+    @media (prefers-reduced-motion: reduce) {
+        animation: none;
+    }
+
     @keyframes bg-spin {
         to {
             --border-angle: 1turn;

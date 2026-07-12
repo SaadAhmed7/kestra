@@ -477,7 +477,7 @@
         background: var(--ks-bg-inactive);
         color: var(--ks-text-primary);
         cursor: pointer;
-        transition: all 0.15s;
+        transition: background-color 150ms ease, border-color 150ms ease;
     }
 
     .auth-option input[type="radio"] {
@@ -502,8 +502,9 @@
         height: 0.625rem;
         border-radius: 50%;
         background: var(--ks-toggle-active);
-        transform: scale(0);
-        transition: transform 0.15s ease;
+        opacity: 0;
+        transform: scale(0.5);
+        transition: transform 150ms ease, opacity 150ms ease;
     }
 
     .auth-option input[type="radio"]:checked {
@@ -511,6 +512,7 @@
     }
 
     .auth-option input[type="radio"]:checked::after {
+        opacity: 1;
         transform: scale(1);
     }
 
