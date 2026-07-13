@@ -72,6 +72,10 @@
             namespace: newVal,
             id: "",
             revision: 0,
+            tasks: [],
+            disabled: false,
+            deleted: false,
+            draft: false,
             source: `namespace: ${newVal}\n`,
             errors: [],
         }

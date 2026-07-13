@@ -15,7 +15,7 @@ import {globalI18n} from "../translations/i18n"
 import {transformResponse} from "../components/dependencies/composables/useDependencies"
 import {useAuthStore} from "override/stores/auth"
 import {useRoute} from "vue-router"
-import {useClient, type FlowWithSource, type AbstractTrigger, type Task as SdkTask} from "@kestra-io/kestra-sdk"
+import {useClient, type FlowWithSource, type AbstractTrigger, type Task as SdkTask, ValidateConstraintViolation} from "@kestra-io/kestra-sdk"
 import * as FlowsAPI from "@kestra-io/kestra-sdk/flows"
 import * as MetricsAPI from "@kestra-io/kestra-sdk/metrics"
 import {defaultNamespace} from "../composables/useNamespaces"
@@ -49,29 +49,11 @@ export interface Input {
     defaults?: any;
 }
 
-export interface FlowValidations {
-    constraints?: string;
-    outdated?: boolean;
-    infos?: string[];
-    warnings?: string[];
-    deprecationPaths?: string[];
-}
-
-// tasks/errors/triggers/inputs are overridden below: the SDK's generic Task/AbstractTrigger/
-// InputObject types don't model the recursive subtasks or OSS-specific fields (backfill) this
-// app relies on for tree-walking and trigger editing. source is narrowed to required since this
-// store only ever loads flows with the `source: true` request param, which always returns it.
-// disabled/draft/deleted/tasks are widened back to optional: flowStore.flow is also used to hold
-// locally-constructed in-progress flows (new flow/file creation) that don't set them yet.
-export type Flow = Omit<FlowWithSource, "disabled" | "draft" | "deleted" | "tasks"> & {
+export type Flow = FlowWithSource & {
     source: string;
-    disabled?: boolean;
-    draft?: boolean;
-    deleted?: boolean;
     triggers?: Trigger[];
     inputs?: Input[];
     errors?: Task[];
-    tasks?: Task[];
 }
 
 export type FlowSaveOutcome =
@@ -100,7 +82,7 @@ export const useFlowStore = defineStore("flow", () => {
     const dependenciesCount = ref<number>()
     const filesSaveAll = ref<(() => Promise<void>) | null>(null)
     const hasDirtyEditorFiles = ref<boolean>(false)
-    const flowValidation = ref<FlowValidations>()
+    const flowValidation = ref<ValidateConstraintViolation>()
     const taskError = ref<string>()
     const metrics = ref<any[]>()
     const aggregatedMetrics = ref<any>()
@@ -214,12 +196,13 @@ export const useFlowStore = defineStore("flow", () => {
         source: string,
         editorViewType?: string,
         topologyVisible?: boolean
-    }): Promise<FlowValidations | undefined> {
+    }): Promise<ValidateConstraintViolation | undefined> {
         const flowBeforeEdit = flow.value
         const flowOnValidation = flowParsed.value
 
         if (!source.trim()?.length) {
             flowValidation.value = {
+                index: 0,
                 constraints: t("flow must not be empty"),
             }
             return
@@ -249,7 +232,7 @@ export const useFlowStore = defineStore("flow", () => {
         return validateFlow({
             flow: (isCreating.value ? flowYaml.value : yamlWithNextRevision.value) ?? "",
         })
-            .then((value: FlowValidations) => {
+            .then((value: ValidateConstraintViolation) => {
                 if (
                     topologyVisible &&
                     flowHaveTasks.value &&
@@ -468,6 +451,7 @@ export const useFlowStore = defineStore("flow", () => {
 
             // add this error to the list of errors
             flowValidation.value = {
+                index: 0,
                 constraints: data.exception,
                 outdated: false,
                 infos: [],
@@ -777,7 +761,9 @@ function deleteFlowAndDependencies() {
     }
 
     function validateFlow(options: { flow: string }) {
-        const flowValidationIssues: FlowValidations = {}
+        const flowValidationIssues: ValidateConstraintViolation = {
+            index: 0,
+        }
         if(isCreating.value) {
             const {namespace} = YAML_UTILS.getMetadata(options.flow)
             if(authStore.user && !authStore.user?.isAllowed(

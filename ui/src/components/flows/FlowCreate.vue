@@ -133,6 +133,10 @@ tasks:
         flowStore.flow = {
             id,
             namespace: selectedNamespace,
+            tasks: [],
+            disabled: false,
+            deleted: false,
+            draft: false,
             ...parsedFlow,
             source: flowYaml,
         }
