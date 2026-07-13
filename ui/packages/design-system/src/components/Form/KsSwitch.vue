@@ -64,7 +64,7 @@
                 border-radius: 7px;
                 background-color: palette.$base-gray-neutral-white;
                 box-shadow: 0 1px 4px var(--ks-shadow-element);
-                transition: left 0.2s ease;
+                transition: transform var(--ks-duration-base) var(--ks-ease-standard);
             }
         }
 
@@ -76,7 +76,8 @@
             background-color: var(--ks-toggle-active);
 
             .kel-switch__action {
-                left: calc(100% - 17px);
+                left: 3px;
+                transform: translateX(22px);
             }
         }
 
