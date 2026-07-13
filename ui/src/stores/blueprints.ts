@@ -1,7 +1,7 @@
 import {ref} from "vue"
 import {defineStore} from "pinia"
 
-import {BlueprintControllerApiFlowBlueprint, useClient} from "@kestra-io/kestra-sdk"
+import {BlueprintControllerApiFlowBlueprint, InputObject, useClient} from "@kestra-io/kestra-sdk"
 import {apiUrl} from "override/utils/route"
 import * as BlueprintsAPI from "@kestra-io/kestra-sdk/blueprints"
 import * as BlueprintTagsAPI from "@kestra-io/kestra-sdk/blueprint-tags"
@@ -10,7 +10,6 @@ import type {QueryFilter} from "@kestra-io/design-system"
 import {useMiscStore} from "override/stores/misc"
 
 import {trackBlueprintSelection} from "../utils/tabTracking"
-import {Input} from "./flow.ts"
 
 export type BlueprintType = "community" | "custom";
 type BlueprintKind = "flow" | "dashboard" | "app";
@@ -26,7 +25,7 @@ interface Blueprint {
     id?: string;
 }
 
-export type TemplateArgument = Record<string, Input>;
+export type TemplateArgument = Record<string, InputObject>;
 
 export type {BlueprintControllerApiFlowBlueprint as FlowBlueprint}
 

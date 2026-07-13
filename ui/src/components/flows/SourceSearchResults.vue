@@ -7,7 +7,7 @@
             class="results-collapse"
         >
             <KsCollapseItem
-                v-for="item in results"
+                v-for="item in filteredResults"
                 :key="`${item.model.namespace}.${item.model.id}`"
                 :name="`${item.model.namespace}.${item.model.id}`"
                 class="result-group"
@@ -58,13 +58,13 @@
 </template>
 
 <script setup lang="ts">
-    import {ref, watch} from "vue"
+    import {computed} from "vue"
     import {useI18n} from "vue-i18n"
     import _escape from "lodash/escape"
     import ArrowRight from "vue-material-design-icons/ArrowRight.vue"
 
     const props = defineProps<{
-        results: Array<{model: {namespace: string; id: string}; fragments: string[]}> | undefined
+        results: Array<{model?: {namespace: string; id: string}; fragments?: string[]}> | undefined
         selectedKey: string | null
     }>()
 
@@ -74,19 +74,22 @@
 
     const {t} = useI18n()
 
-    const expanded = ref<string[]>([])
+    const expanded = computed(() => {
+        if (!props.results) return []
+        return props.results.map((item) => `${item.model?.namespace}.${item.model?.id}`)
+    })
 
-    watch(
-        () => props.results,
-        (newResults) => {
-            if (newResults) {
-                expanded.value = newResults.map((item) => `${item.model.namespace}.${item.model.id}`)
-            } else {
-                expanded.value = []
-            }
-        },
-        {immediate: true},
-    )
+    const filteredResults = computed(() => {
+        if (!props.results) return []
+        return props.results.map((item) => ({
+            model: {
+                namespace: "",
+                id: "",
+            },
+            fragments:[],
+            ...item,
+        }))
+    })
 
     function sanitize(content: string) {
         return _escape(content)

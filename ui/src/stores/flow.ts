@@ -10,12 +10,19 @@ import {useUnsavedChangesStore} from "./unsavedChanges"
 import {defineStore} from "pinia"
 import {FlowGraph} from "@kestra-io/topology/vue-flow-utils"
 import {makeToast} from "../utils/toast"
-import {InputType} from "../utils/inputs"
 import {globalI18n} from "../translations/i18n"
 import {transformResponse} from "../components/dependencies/composables/useDependencies"
 import {useAuthStore} from "override/stores/auth"
 import {useRoute} from "vue-router"
-import {useClient, type FlowWithSource, type AbstractTrigger, type Task as SdkTask, ValidateConstraintViolation} from "@kestra-io/kestra-sdk"
+import {
+    useClient, 
+    type FlowWithSource, 
+    type AbstractTrigger, 
+    type Task as SdkTask, 
+    type ValidateConstraintViolation, 
+    type InputObject, 
+    type SearchResultFlow,
+} from "@kestra-io/kestra-sdk"
 import * as FlowsAPI from "@kestra-io/kestra-sdk/flows"
 import * as MetricsAPI from "@kestra-io/kestra-sdk/metrics"
 import {defaultNamespace} from "../composables/useNamespaces"
@@ -42,18 +49,15 @@ export type Task = SdkTask & {
     tasks?: Task[]
 }
 
-export interface Input {
-    id: string;
-    type: InputType;
-    required?: boolean;
-    defaults?: any;
-}
-
 export type Flow = FlowWithSource & {
     source: string;
     triggers?: Trigger[];
-    inputs?: Input[];
+    inputs?: InputObject[];
     errors?: Task[];
+}
+
+export interface FlowRevision extends FlowWithSource{
+    revision: number;
 }
 
 export type FlowSaveOutcome =
@@ -72,21 +76,21 @@ export const useFlowStore = defineStore("flow", () => {
     const flows = ref<Flow[]>()
     const flow = ref<Flow>()
     const task = ref<Task>()
-    const search = ref<any[]>()
+    const search = ref<SearchResultFlow[]>()
     const total = ref<number>(0)
     const overallTotal = ref<number>()
     const flowGraph = ref<FlowGraph>()
     const invalidGraph = ref<boolean>(false)
-    const revisions = ref<any[]>()
+    const revisions = ref<FlowRevision[]>()
     const revisionsCount = ref<number>()
     const dependenciesCount = ref<number>()
     const filesSaveAll = ref<(() => Promise<void>) | null>(null)
     const hasDirtyEditorFiles = ref<boolean>(false)
     const flowValidation = ref<ValidateConstraintViolation>()
     const taskError = ref<string>()
-    const metrics = ref<any[]>()
+    const metrics = ref<string[]>()
     const aggregatedMetrics = ref<any>()
-    const tasksWithMetrics = ref<any[]>()
+    const tasksWithMetrics = ref<string[]>()
     const executeFlow = ref<boolean>(false)
     const openAiCopilot = ref<boolean>(false)
     const lastSaveFlow = ref<string>()
@@ -408,7 +412,7 @@ export const useFlowStore = defineStore("flow", () => {
     function searchFlows(options: { [key: string]: any }) {
         const {sort, ...rest} = options
         return FlowsAPI.searchFlowsBySourceCode({...rest, sort: sort ? [sort] : undefined}).then(response => {
-            search.value = response.results as unknown as any[]
+            search.value = response.results
             total.value = response.total ?? 0
 
             return response
@@ -680,9 +684,9 @@ function deleteFlowAndDependencies() {
     function loadRevisions(options: { namespace: string, id: string, store?: boolean, allowDeleted?: boolean }): Promise<any[]> {
         return FlowsAPI.listFlowRevisions({namespace: options.namespace, id: options.id}).then(data => {
             if (options.store !== false) {
-                revisions.value = data
+                revisions.value = data.filter((r): r is FlowRevision => r.revision !== undefined)
+                revisionsCount.value = Array.isArray(revisions.value) ? revisions.value.length : 0
             }
-            revisionsCount.value = Array.isArray(data) ? data.length : 0
             return data
         })
     }
