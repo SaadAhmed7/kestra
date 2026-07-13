@@ -1,36 +1,19 @@
 import moment from "moment/moment"
+import type {Type as InputType, InputObject} from "@kestra-io/kestra-sdk"
 import {flowYamlUtils as YAML_UTILS} from "@kestra-io/topology"
 import {storageKeys} from "./constants"
+import {InputMetaData} from "../stores/executions"
 
-export type InputType = "STRING"
-    | "NUMBER"
-    | "BOOLEAN"
-    | "BOOL"
-    | "DATE"
-    | "DATETIME"
-    | "TIME"
-    | "ARRAY"
-    | "MULTISELECT"
-    | "JSON"
-    | "YAML"
-    | "SECRET"
-    | "FILE"
-    | "DURATION"
-    | "INT"
-    | "FLOAT"
-    | "ENUM"
-    | "SELECT"
-    | "URI"
-    | "EMAIL"
-    | "FORM";
+export type {InputType, InputObject}
 
-export interface FlowInput {
-    id: string;
-    type?: InputType | string;
-    displayName?: string;
-    description?: string;
-    inputs?: FlowInput[];
-    [key: string]: any;
+
+export interface FlowInputForm extends InputObject {
+    type: "FORM";
+    inputs: InputObject[];
+}
+
+function isInputAForm(input: InputObject): input is FlowInputForm {
+    return input.type === "FORM" && Array.isArray((input as FlowInputForm).inputs)
 }
 
 /**
@@ -39,10 +22,10 @@ export interface FlowInput {
  * FORMs never nest (rejected by backend validation), so expansion is single-level.
  * Returns the flat leaf list keyed by dotted id, which the submission/validation paths consume.
  */
-export function flattenInputs(inputs: FlowInput[] | undefined): FlowInput[] {
+export function flattenInputs(inputs: InputMetaData[] | undefined): InputMetaData[] {
     if (!inputs) return []
     return inputs.flatMap((input) =>
-        input.type === "FORM"
+        isInputAForm(input)
             ? (input.inputs ?? []).map((child) => ({...child, id: `${input.id}.${child.id}`}))
             : [input],
     )
@@ -80,22 +63,22 @@ export function formChildName(id: string, formIds: string[]): string {
  * the backend emits them). Used by EE Apps, which receives flat leaves with no FORM nodes.
  */
 export function unflattenToForms(
-    leaves: FlowInput[] | undefined,
+    leaves: InputObject[] | undefined,
     formGroups: Record<string, {displayName?: string; description?: string}> | undefined,
-): FlowInput[] {
+):(FlowInputForm|InputObject)[] {
     if (!leaves) return []
     const formIds = Object.keys(formGroups ?? {})
     if (!formIds.length) return leaves
 
-    const result: FlowInput[] = []
-    const nodes = new Map<string, FlowInput>()
+    const result: (FlowInputForm|InputObject)[] = []
+    const nodes = new Map<string, InputObject>()
     for (const leaf of leaves) {
         const owner = longestFormPrefix(leaf.id, formIds)
         if (!owner) {
             result.push(leaf)
             continue
         }
-        let node = nodes.get(owner)
+        let node = nodes.get(owner) as FlowInputForm
         if (!node) {
             node = {
                 id: owner,
@@ -107,7 +90,7 @@ export function unflattenToForms(
             nodes.set(owner, node)
             result.push(node)
         }
-        node.inputs!.push({...leaf, id: leaf.id.slice(owner.length + 1)})
+        node.inputs.push({...leaf, id: leaf.id.slice(owner.length + 1)})
     }
     return result
 }
@@ -135,7 +118,7 @@ export interface WizardStep {
  * `STRING, FORM(STRING), DATE` yields `[STRING] [FORM child] [DATE]` then a final recap step.
  * Empty FORMs are skipped. Leaf ids are dotted for FORM children (mirrors `flattenInputs`).
  */
-export function buildWizardSteps(inputs: FlowInput[] | undefined): WizardStep[] {
+export function buildWizardSteps(inputs: (FlowInputForm | InputMetaData)[] | undefined): WizardStep[] {
     const result: WizardStep[] = []
     let run: string[] = []
     const flushRun = () => {
@@ -163,9 +146,7 @@ export function buildWizardSteps(inputs: FlowInput[] | undefined): WizardStep[] 
 export function normalize(type: InputType | undefined, value: any) {
     let res = value
 
-    if (type === "BOOLEAN" && value === undefined) {
-        res = "undefined"
-    } else if (type === "BOOL" && value === undefined) {
+if (type === "BOOL" && value === undefined) {
         res = false
     } else if (value === null || value === undefined) {
         res = undefined
@@ -198,8 +179,6 @@ export function normalizeForComponents(type: InputType | undefined, value: any) 
         res = moment().startOf("day").add(res, "seconds").toString()
     } else if (type === "ARRAY") {
         res = JSON.stringify(res).toString()
-    } else if (type === "BOOLEAN" && value === undefined) {
-        res = "undefined"
     } else if (type === "BOOL" && value === undefined) {
         res = false
     } else if (type === "STRING" && Array.isArray(res)) {

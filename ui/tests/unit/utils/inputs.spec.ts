@@ -1,6 +1,7 @@
 import {describe, expect, it} from "vitest"
-import {flattenInputs, unflattenToForms, formChildName, buildWizardSteps} from "../../../src/utils/inputs"
+import {flattenInputs, unflattenToForms, formChildName, buildWizardSteps, FlowInputForm} from "../../../src/utils/inputs"
 import {inputsToFormData} from "../../../src/utils/submitTask"
+import {InputMetaData} from "../../../src/stores/executions"
 
 const momentStub = {
     $moment: (_d: any) => ({toISOString: () => "iso", format: (_f: string) => "fmt"}),
@@ -12,12 +13,12 @@ describe("flattenInputs", () => {
     })
 
     it("passes non-FORM inputs through unchanged", () => {
-        const inputs = [{id: "name", type: "STRING"}, {id: "age", type: "INT"}]
+        const inputs:InputMetaData[] = [{id: "name", type: "STRING"}, {id: "age", type: "INT"}]
         expect(flattenInputs(inputs)).toEqual(inputs)
     })
 
     it("expands a FORM into children with dotted ids", () => {
-        const inputs = [{
+        const inputs:FlowInputForm[] = [{
             id: "environment",
             type: "FORM",
             inputs: [{id: "region", type: "STRING"}, {id: "data_center", type: "STRING"}],
@@ -29,7 +30,7 @@ describe("flattenInputs", () => {
     })
 
     it("keeps document order across mixed FORM and top-level inputs", () => {
-        const inputs = [
+        const inputs:(FlowInputForm | InputMetaData)[] = [
             {id: "environment", type: "FORM", inputs: [{id: "region", type: "STRING"}]},
             {id: "api_key", type: "SECRET"},
             {id: "credentials", type: "FORM", inputs: [{id: "token", type: "SECRET"}]},
@@ -42,7 +43,7 @@ describe("flattenInputs", () => {
     })
 
     it("yields nothing for a FORM with no children", () => {
-        const inputs = [{id: "empty", type: "FORM", inputs: []}]
+        const inputs:FlowInputForm[] = [{id: "empty", type: "FORM", inputs: []}]
         expect(flattenInputs(inputs)).toEqual([])
     })
 })
@@ -53,13 +54,13 @@ describe("unflattenToForms", () => {
     })
 
     it("passes leaves through unchanged when there are no form groups", () => {
-        const leaves = [{id: "name", type: "STRING"}, {id: "age", type: "INT"}]
+        const leaves:InputMetaData[] = [{id: "name", type: "STRING"}, {id: "age", type: "INT"}]
         expect(unflattenToForms(leaves, undefined)).toEqual(leaves)
         expect(unflattenToForms(leaves, {})).toEqual(leaves)
     })
 
     it("rebuilds a FORM node (displayName/description from formGroups) with bare-id children", () => {
-        const leaves = [
+        const leaves:InputMetaData[] = [
             {id: "environment.region", type: "STRING", displayName: "Region"},
             {id: "environment.zone", type: "STRING"},
             {id: "api_key", type: "SECRET", displayName: "API Key"},
@@ -81,7 +82,7 @@ describe("unflattenToForms", () => {
     })
 
     it("round-trips with flattenInputs (the inverse invariant)", () => {
-        const leaves = [
+        const leaves:InputMetaData[] = [
             {id: "environment.region", type: "STRING", displayName: "Region"},
             {id: "environment.zone", type: "STRING"},
             {id: "api_key", type: "SECRET", displayName: "API Key"},
@@ -95,7 +96,7 @@ describe("unflattenToForms", () => {
     })
 
     it("places each FORM node at the position of its first child leaf (document order)", () => {
-        const leaves = [
+        const leaves:InputMetaData[] = [
             {id: "a", type: "STRING"},
             {id: "env.region", type: "STRING"},
             {id: "b", type: "INT"},
@@ -103,14 +104,14 @@ describe("unflattenToForms", () => {
         const tree = unflattenToForms(leaves, {env: {displayName: "Env"}})
         expect(tree.map(n => n.id)).toEqual(["a", "env", "b"])
         expect(tree[1].type).toBe("FORM")
-        expect(tree[1].inputs?.map(c => c.id)).toEqual(["region"])
+        expect((tree[1] as FlowInputForm).inputs?.map(c => c.id)).toEqual(["region"])
     })
 
     it("picks the longest matching form prefix for the owning form", () => {
         const tree = unflattenToForms([{id: "a.b.region", type: "STRING"}], {"a": {}, "a.b": {}})
         expect(tree).toHaveLength(1)
         expect(tree[0].id).toBe("a.b")
-        expect(tree[0].inputs?.[0].id).toBe("region")
+        expect((tree[0] as FlowInputForm).inputs?.[0].id).toBe("region")
     })
 })
 
@@ -204,7 +205,7 @@ describe("buildWizardSteps", () => {
 
 describe("inputsToFormData over flattened FORM inputs (submit contract)", () => {
     it("emits dotted part names from a dotted-keyed value map", () => {
-        const flowInputs = [{
+        const flowInputs: (FlowInputForm | InputMetaData)[] = [{
             id: "environment",
             type: "FORM",
             inputs: [{id: "region", type: "STRING"}],
@@ -220,7 +221,7 @@ describe("inputsToFormData over flattened FORM inputs (submit contract)", () => 
     })
 
     it("drops empty dotted leaves", () => {
-        const flowInputs = [{
+        const flowInputs: (FlowInputForm | InputMetaData)[] = [{
             id: "environment",
             type: "FORM",
             inputs: [{id: "region", type: "STRING"}, {id: "data_center", type: "STRING"}],

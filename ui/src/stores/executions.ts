@@ -6,13 +6,12 @@ import {useCoreStore} from "./core"
 import throttle from "lodash/throttle"
 import {useRoute} from "vue-router"
 import {CLUSTER_PREFIX, routeQueryToQueryFilters} from "@kestra-io/design-system"
-import {TaskRun, useClient, type Execution as SDKExecution} from "@kestra-io/kestra-sdk"
+import {InputObject, TaskRun, useClient, type Execution as SDKExecution} from "@kestra-io/kestra-sdk"
 import * as ExecutionsAPI from "@kestra-io/kestra-sdk/executions"
 import * as LogsAPI from "@kestra-io/kestra-sdk/logs"
 import * as MetricsAPI from "@kestra-io/kestra-sdk/metrics"
 import * as ExecutionUtils from "../utils/executionUtils"
 import {executionLogsDownloadFilename} from "../utils/logs"
-import {InputType} from "../utils/inputs"
 import {Optional} from "../utils/utils"
 
 export interface Check {
@@ -47,13 +46,7 @@ export interface ValidationEventPayload {
 
 export type ValueOptionLike = string | {label: string; value: string};
 
-export interface InputMetaData {
-    id: string;
-    type: InputType
-    displayName?: string;
-    description?: string;
-    required?: boolean;
-    defaults?: unknown;
+export interface InputMetaData extends InputObject {
     value?: unknown;
     values?: ValueOptionLike[];
     options?: ValueOptionLike[];
@@ -65,11 +58,9 @@ export interface InputMetaData {
     max?: number;
     allowedFileExtensions?: string[];
     accept?: string;
-    prefill?: unknown;
     // present only on the raw flow inputs (props.initialInputs); the rendered
     // validate response strips `expression`, keeping `dependsOn` at most
     expression?: string;
-    dependsOn?: unknown;
 }
 
 interface LogsState {
