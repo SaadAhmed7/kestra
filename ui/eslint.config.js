@@ -55,5 +55,24 @@ export default defineConfig([
             "vue/enforce-style-attribute": "off",
         },
     },
+    {
+        // Golden rule 1 (ui/AGENTS.md): feature code composes Ks* design-system
+        // components — only the design system itself may use Element Plus
+        // directly, which is why this block targets src/ and not packages/.
+        files: ["src/**/*.vue"],
+        rules: {
+            "vue/no-restricted-syntax": [
+                "error",
+                {
+                    selector: "VElement[rawName=/^el-/]",
+                    message: "Element Plus components are forbidden in feature code — use the Ks* design-system equivalent (ui/AGENTS.md golden rule 1).",
+                },
+                {
+                    selector: "VElement[rawName=/^El[A-Z]/]",
+                    message: "Element Plus components are forbidden in feature code — use the Ks* design-system equivalent (ui/AGENTS.md golden rule 1).",
+                },
+            ],
+        },
+    },
 
 ])
