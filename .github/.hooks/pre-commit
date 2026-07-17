@@ -32,20 +32,3 @@ if [ -n "$java_staged_files" ]; then
 else
   echo "No Java files modified. Skipping spotlessApply."
 fi
-
-
-
-ui_staged_files=$(git --no-pager diff --cached --name-only | grep -E '(^|/)(ui|ui-ee)(/|$)')
-
-if [ -n "$ui_staged_files" ]; then
-  echo "Staged UI files: $ui_staged_files"
-  if [ -d "ui" ]; then
-      echo "Running lint-staged in ui directory..."
-      cd ui && npx lint-staged
-  fi
-
-  if [ -d "ui-ee" ]; then
-      echo "Running lint-staged in ui directory..."
-      cd ui-ee && npx lint-staged
-  fi
-fi
