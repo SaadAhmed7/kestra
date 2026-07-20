@@ -122,7 +122,7 @@ describe("ExecutionVariableExplorer", () => {
         await selectVariable(wrapper, "files")
 
         const reportRow = wrapper
-            .findAll(".json-tree__row")
+            .findAll(".json-tree-row")
             .find((row) => row.text().includes("\"report\""))
 
         expect(reportRow).toBeDefined()
@@ -166,7 +166,7 @@ describe("ExecutionVariableExplorer", () => {
         await selectVariable(wrapper, "bundle")
 
         const findRow = (text: string) =>
-            wrapper.findAll(".json-tree__row").find((row) => row.text().includes(text))
+            wrapper.findAll(".json-tree-row").find((row) => row.text().includes(text))
 
         await findRow("\"a\"")!.trigger("click")
         await flushPromises()
