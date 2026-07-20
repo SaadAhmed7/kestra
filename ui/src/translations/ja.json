@@ -480,6 +480,13 @@
     },
     "use": "使用",
     "plugins": {
+      "autoInstall": {
+        "failed": "プラグインのインストールに失敗しました",
+        "progress": "{transferred} / {total}",
+        "succeeded": "プラグインのインストールに成功しました | プラグインのインストールに成功しました",
+        "timeout": "プラグインのインストールに予想より時間がかかっています。そのまま保存します",
+        "title": "{count} 件のプラグインをインストール中 | {count} 件のプラグインをインストール中"
+      },
       "beta": "Beta",
       "copy_type": "タイプをコピー",
       "deprecated": "非推奨",
