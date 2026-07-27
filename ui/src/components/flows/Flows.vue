@@ -240,6 +240,19 @@
                     </template>
                 </KsTableColumn>
 
+                <KsTableColumn
+                    v-else-if="extensionColumn(colProp)"
+                    :label="extensionColumn(colProp)!.label"
+                >
+                    <template #header>
+                        <component :is="extensionColumn(colProp)!.header" v-if="extensionColumn(colProp)!.header" />
+                        <template v-else>{{ extensionColumn(colProp)!.label }}</template>
+                    </template>
+                    <template #default="scope">
+                        <component :is="extensionColumn(colProp)!.cell" :row="scope.row" />
+                    </template>
+                </KsTableColumn>
+
             </template>
 
             <KsTableColumn columnKey="action" className="row-action" :label="$t('actions')">
@@ -327,8 +340,9 @@
     import {useMiscStore} from "override/stores/misc"
     import {useExecutionsStore} from "../../stores/executions"
 
-    import {useTableColumns} from "../../composables/useTableColumns"
+    import {useTableColumns, type ColumnConfig} from "../../composables/useTableColumns"
     import useRouteContext from "../../composables/useRouteContext"
+    import {useFlowsTableExtension} from "override/components/flows/flowsTableExtension"
     import {QueryFilter} from "@kestra-io/kestra-sdk"
     import useFlowsBulkActions from "./useFlowsBulkActions"
 
@@ -368,7 +382,7 @@
     const latestExecutions = ref<any[]>([])
     const file = ref<HTMLInputElement | null>(null)
 
-    const optionalColumns = ref([
+    const optionalColumns = ref<ColumnConfig[]>([
         {
             label: t("labels"),
             prop: "labels",
@@ -413,6 +427,19 @@
         },
     ])
 
+    const flowsExtension = useFlowsTableExtension()
+    optionalColumns.value.push(...flowsExtension.columns)
+
+    const extensionColumn = (prop: string) => flowsExtension.columns.find(column => column.prop === prop)
+    const extensionColumnsVisible = computed(() =>
+        flowsExtension.columns.some(column => displayColumns.value.includes(column.prop)),
+    )
+    const loadExtensionData = (rows: {id: string; namespace: string}[]) => {
+        if (extensionColumnsVisible.value) {
+            flowsExtension.load?.(rows.map(row => ({id: row.id, namespace: row.namespace})))
+        }
+    }
+
     const {
         visibleColumns: displayColumns,
         updateVisibleColumns,
@@ -420,6 +447,12 @@
         columns: optionalColumns.value,
         storageKey: "flows",
         initialVisibleColumns: [],
+    })
+
+    watch(extensionColumnsVisible, visible => {
+        if (visible && flowStore.flows?.length) {
+            loadExtensionData(flowStore.flows)
+        }
     })
 
     const user = computed(() => authStore.user)
@@ -458,6 +491,7 @@
                         lastExecutionByFlowReady.value = true
                     })
                 }
+                loadExtensionData(data.results)
             })
     }
 
