@@ -11,6 +11,7 @@
                 :currentPage="urlPage"
                 :pageSize="urlSize"
                 :noGutter="!embed && !system"
+                :fitHeight="!embed && !system"
                 @ready="ready = true"
                 @page-changed="onPageChanged"
             >
@@ -53,9 +54,9 @@
                     />
                     <div v-else-if="embed && !system" class="blueprint-list">
                         <BlueprintListRow
-                            v-for="blueprint in blueprints"
+                            v-for="blueprint in blueprints?.filter((b): b is FlowBlueprint & {id: string} => typeof b.id === 'string')"
                             :key="blueprint.id"
-                            :blueprint
+                            :blueprint="blueprint"
                             :tags
                             @click="goToDetail(blueprint.id)"
                             @copy="copy(blueprint.id)"
@@ -63,7 +64,7 @@
                     </div>
                     <div v-else class="card-grid" :class="{system}">
                         <BlueprintCard
-                            v-for="blueprint in blueprints"
+                            v-for="blueprint in blueprints?.filter((b): b is FlowBlueprint & {id: string} => typeof b.id === 'string')"
                             :key="blueprint.id"
                             :blueprint
                             :embed
