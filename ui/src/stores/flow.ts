@@ -15,10 +15,9 @@ import {globalI18n} from "../translations/i18n"
 import {transformResponse} from "../components/dependencies/composables/useDependencies"
 import {useAuthStore} from "override/stores/auth"
 import {useRoute} from "vue-router"
-import {useClient, type FlowWithSource, type AbstractTrigger, type Task as SdkTask, type SourceSearchReplacePreviewRequest, type SourceSearchReplaceApplyRequest, type SourceSearchReplaceLineRequest} from "@kestra-io/kestra-sdk"
+import {useClient, type FlowWithSource, type AbstractTrigger, type Task as SdkTask} from "@kestra-io/kestra-sdk"
 import * as FlowsAPI from "@kestra-io/kestra-sdk/flows"
 import * as MetricsAPI from "@kestra-io/kestra-sdk/metrics"
-import type {SourceSearchResult} from "../utils/sourceSearchDiff"
 import {defaultNamespace} from "../composables/useNamespaces"
 
 const textYamlHeader = {
@@ -89,7 +88,6 @@ export function isSuccessfulFlowSaveOutcome(
 export const useFlowStore = defineStore("flow", () => {
     const flows = ref<Flow[]>()
     const flow = ref<Flow>()
-    const search = ref<SourceSearchResult[]>()
     const total = ref<number>(0)
     const flowGraph = ref<FlowGraph>()
     const invalidGraph = ref<boolean>(false)
@@ -429,27 +427,6 @@ export const useFlowStore = defineStore("flow", () => {
             }
         })
     }
-    function searchFlows(options: Parameters<typeof FlowsAPI.searchFlowsBySourceCode>[0]) {
-        return FlowsAPI.searchFlowsBySourceCode(options).then(response => {
-            search.value = response.results as SourceSearchResult[]
-            total.value = response.total ?? 0
-
-            return response
-        })
-    }
-
-    function previewSourceSearchReplace(request: SourceSearchReplacePreviewRequest) {
-        return FlowsAPI.previewReplaceBySourceCode(request)
-    }
-
-    function applySourceSearchReplace(request: SourceSearchReplaceApplyRequest) {
-        return FlowsAPI.applyReplaceBySourceCode(request)
-    }
-
-    function replaceLineSourceSearch(request: SourceSearchReplaceLineRequest) {
-        return FlowsAPI.replaceLineBySourceCode(request)
-    }
-
     function flowsByNamespace(namespace: string) {
         return FlowsAPI.listFlowsByNamespace({namespace}).then(response => {
             return response
@@ -1007,7 +984,6 @@ function deleteFlowAndDependencies() {
         flowYamlMetadata,
         flows,
         flow,
-        search,
         total,
         flowGraph,
         invalidGraph,
@@ -1038,10 +1014,6 @@ function deleteFlowAndDependencies() {
         onEdit,
         initYamlSource,
         findFlows,
-        searchFlows,
-        previewSourceSearchReplace,
-        applySourceSearchReplace,
-        replaceLineSourceSearch,
         flowsByNamespace,
         loadFlow,
         loadTask,
