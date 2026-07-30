@@ -77,7 +77,15 @@ public class ExecutionDependenciesStreamingService {
             }
 
             String executionId = either.getLeft().executionId();
-            Execution execution = executionRepositoryInterface.findById(either.getLeft().tenantId(), executionId).orElseThrow();
+            Optional<Execution> maybeExecution = executionRepositoryInterface.findById(either.getLeft().tenantId(), executionId);
+            if (maybeExecution.isEmpty()) {
+                // The execution no longer exists (deleted or purged): there is nothing to dispatch. Throwing
+                // here would fail the message and shut down this shared consumer for every subscriber.
+                log.debug("Unable to find execution {}, skipping the event", executionId);
+                return;
+            }
+
+            Execution execution = maybeExecution.get();
             Optional<String> correlationId = execution.getLabels().stream().filter(label -> label.key().equals(CORRELATION_ID)).findAny().map(label -> label.value());
 
             // Get all subscribers for this correlationId
