@@ -7,9 +7,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import javax.sql.DataSource;
 
-import org.apache.commons.lang3.ArrayUtils;
 import org.jooq.ExecuteContext;
 import org.jooq.ExecuteListener;
+import org.jooq.ExecuteListenerProvider;
 
 import io.kestra.core.metrics.MetricRegistry;
 
@@ -21,19 +21,28 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @Factory
 public class JooqExecuteListenerFactory {
+    private static final Duration SLOW_QUERY_THRESHOLD = Duration.ofMillis(500);
+
     @EachBean(DataSource.class)
-    public org.jooq.ExecuteListenerProvider jooqConfiguration(MetricRegistry metricRegistry) {
-        return new org.jooq.ExecuteListenerProvider() {
+    public ExecuteListenerProvider jooqConfiguration(MetricRegistry metricRegistry, JdbcQueryTags queryTags) {
+        return new ExecuteListenerProvider() {
             @Override
             public @NotNull ExecuteListener provide() {
                 return new ExecuteListener() {
                     private static final AtomicBoolean CONNECTION_CHECKED = new AtomicBoolean(false);
-                    private Long startTime;
+
+                    private long startTime;
+
+                    @Override
+                    public void start(ExecuteContext ctx) {
+                        // start()/end() is the only listener callback pair jOOQ guarantees to fire exactly
+                        // once for every execution, including one that fails during rendering/prepare/bind
+                        // before executeStart() ever runs; executeStart()/executeEnd() do not fire in that case
+                        startTime = System.nanoTime();
+                    }
 
                     @Override
                     public void executeStart(ExecuteContext ctx) {
-                        startTime = System.currentTimeMillis();
-
                         // check that isolation level is READ UNCOMMITED, it's the default for Postgres but not for MySQL,
                         // our queue system didn't work correctly otherwise.
                         if (!CONNECTION_CHECKED.getAndSet(true)) {
@@ -48,29 +57,29 @@ public class JooqExecuteListenerFactory {
                     }
 
                     @Override
-                    public void executeEnd(ExecuteContext ctx) {
-                        Duration duration = Duration.ofMillis(System.currentTimeMillis() - startTime);
+                    public void end(ExecuteContext ctx) {
+                        // recorded in end() rather than executeEnd(), which fires before jOOQ fetches any rows:
+                        // executeEnd() alone under-reports the duration of anything that returns a result set
+                        Duration duration = Duration.ofNanos(System.nanoTime() - startTime);
 
-                        String[] tags = tags(ctx);
+                        // record a single condensed timer for the table/query type
+                        String[] tags = queryTags.tags(ctx);
                         metricRegistry.timer(MetricRegistry.METRIC_JDBC_QUERY_DURATION, MetricRegistry.METRIC_JDBC_QUERY_DURATION_DESCRIPTION, tags)
                             .record(duration);
+
+                        // for slow queries, record a timer for the exact SQL
+                        // for batch queries, the query will be expanded without parameters, and will lead to overflow of metrics so we exclude them
+                        if (duration.compareTo(SLOW_QUERY_THRESHOLD) > 0 && ctx.batchMode() != ExecuteContext.BatchMode.MULTIPLE && ctx.sql() != null) {
+                            String[] slowQueryTags = { "sql", ctx.sql() };
+                            metricRegistry.timer(MetricRegistry.METRIC_JDBC_SLOW_QUERY_DURATION, MetricRegistry.METRIC_JDBC_SLOW_QUERY_DURATION_DESCRIPTION, slowQueryTags)
+                                .record(duration);
+                        }
 
                         if (log.isTraceEnabled()) {
                             log.trace("[Duration: {}] [Rows: {}] [Query: {}]", duration, ctx.rows(), ctx.query());
                         } else if (log.isDebugEnabled()) {
                             log.debug("[Duration: {}] [Rows: {}] [Query: {}]", duration, ctx.rows(), ctx.sql());
                         }
-                    }
-
-                    private String[] tags(ExecuteContext ctx) {
-                        var tags = new String[] { "batch", ctx.batchMode().name() };
-
-                        // in batch query, the query will be expanded without parameters, and will lead to overflow of metrics
-                        if (ctx.batchMode() != ExecuteContext.BatchMode.MULTIPLE) {
-                            return ArrayUtils.addAll(tags, "sql", ctx.sql());
-                        }
-
-                        return tags;
                     }
                 };
             }
