@@ -1569,7 +1569,7 @@ public abstract class AbstractFlowRepositoryTest {
 
         try {
             ArrayListTotal<SearchResult<Flow>> results = flowRepository.findSourceCode(
-                Pageable.UNPAGED, "unique-searchable-string", tenant, TEST_NAMESPACE
+                Pageable.UNPAGED, "unique-searchable-string", false, false, false, SourceSearchScope.ALL, tenant, TEST_NAMESPACE
             );
 
             assertThat(results.getTotal()).isGreaterThanOrEqualTo(1);
@@ -1918,7 +1918,7 @@ public abstract class AbstractFlowRepositoryTest {
 
         try {
             ArrayListTotal<SearchResult<Flow>> results = flowRepository.findSourceCode(
-                Pageable.UNPAGED, null, tenant, null
+                Pageable.UNPAGED, null, false, false, false, SourceSearchScope.ALL, tenant, null
             );
             assertThat(results).isNotEmpty();
         } finally {
