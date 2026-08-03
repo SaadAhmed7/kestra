@@ -214,7 +214,7 @@ public class MetricRegistry {
     public static final String METRIC_JDBC_QUERY_DURATION = "jdbc.query.duration";
     public static final String METRIC_JDBC_QUERY_DURATION_DESCRIPTION = "Duration of database queries, including row fetch";
     public static final String METRIC_JDBC_SLOW_QUERY_DURATION = "jdbc.query.slow.duration";
-    public static final String METRIC_JDBC_SLOW_QUERY_DURATION_DESCRIPTION = "Duration of slow database queries, tagged with the exact SQL";
+    public static final String METRIC_JDBC_SLOW_QUERY_DURATION_DESCRIPTION = "Duration of slow database queries, tagged with sanitized SQL (IN-lists collapsed, identifiers and sort columns redacted)";
 
     public static final String METRIC_JDBC_EXECUTION_STATISTICS_COMPACTOR_DURATION = "jdbc.execution-statistics.compactor.duration";
     public static final String METRIC_JDBC_EXECUTION_STATISTICS_COMPACTOR_DURATION_DESCRIPTION = "Duration of a single execution statistics compaction run";

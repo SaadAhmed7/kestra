@@ -67,14 +67,18 @@ public class JooqExecuteListenerFactory {
                         metricRegistry.timer(MetricRegistry.METRIC_JDBC_QUERY_DURATION, MetricRegistry.METRIC_JDBC_QUERY_DURATION_DESCRIPTION, tags)
                             .record(duration);
 
-                        // for slow queries, record a timer for the exact SQL
+                        // for slow queries, record a timer for the sanitized SQL: IN-lists collapsed and
+                        // aliases/sort columns redacted, so the tag stays bounded regardless of how many
+                        // values a caller passed to a filter or what a dashboard column is named
                         // for batch queries, the query will be expanded without parameters, and will lead to overflow of metrics so we exclude them
                         if (duration.compareTo(SLOW_QUERY_THRESHOLD) > 0 && ctx.batchMode() != ExecuteContext.BatchMode.MULTIPLE && ctx.sql() != null) {
-                            String[] slowQueryTags = { "sql", ctx.sql() };
+                            String[] slowQueryTags = { "sql", JdbcSqlSanitizer.sanitize(ctx.sql()) };
                             metricRegistry.timer(MetricRegistry.METRIC_JDBC_SLOW_QUERY_DURATION, MetricRegistry.METRIC_JDBC_SLOW_QUERY_DURATION_DESCRIPTION, slowQueryTags)
                                 .record(duration);
                         }
 
+                        // logged unsanitized, deliberately: the sanitized tag above loses which column a
+                        // slow query sorted/filtered by, and that's often the actual cause of slowness
                         if (log.isTraceEnabled()) {
                             log.trace("[Duration: {}] [Rows: {}] [Query: {}]", duration, ctx.rows(), ctx.query());
                         } else if (log.isDebugEnabled()) {
