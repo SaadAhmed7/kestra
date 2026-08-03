@@ -57,6 +57,11 @@ const HANDLERS = {
     "POST /plugins/pluginUiManifest": {manifest: {}},
 
     // --- flows --------------------------------------------------------------------------------
+    // Keep `/flows/search` ABOVE the `:namespace` pattern conceptually: both are two segments, so
+    // `GET /flows/:namespace` would otherwise match the literal `search` and answer `[]` where
+    // `searchFlows` callers expect a paged object. Exact keys beat patterns in resolveApiRequest(),
+    // which is what makes this entry effective.
+    "GET /flows/search": {results: [], total: 0},
     "GET /flows/:namespace": [],
     "GET /flows/:namespace/:id/revisions": [],
     "GET /flows/:namespace/:id/dependencies": {nodes: [], edges: []},
@@ -64,6 +69,9 @@ const HANDLERS = {
     // --- namespaces ---------------------------------------------------------------------------
     "POST /namespaces/autocomplete": [],
     "GET /namespaces/:namespace/files/directory": [],
+
+    // --- triggers -----------------------------------------------------------------------------
+    "GET /triggers/search": {results: [], total: 0},
 
     // --- executions ---------------------------------------------------------------------------
     "GET /executions/search": {results: [], total: 0},
@@ -121,6 +129,55 @@ const reported = new Set()
 let currentStory = ""
 
 /**
+ * Per-story route handlers, registered by {@link mockApiRoute} and consulted BEFORE {@link HANDLERS}.
+ *
+ * This is the seam a story reaches for when its fixture is its own — a table of rows it asserts on,
+ * or a payload that has to vary with the story's args. `vi.mock()` of an SDK submodule does NOT work
+ * from a story file (see the note on mockApiRoute), and the shared HANDLERS table is the wrong home
+ * for a fixture only one story cares about, so without this there was nowhere for such data to live.
+ */
+const overrides = new Map()
+
+/**
+ * Register a route handler for the duration of the current story.
+ *
+ * Call it from the story's `setup()` (or a decorator), alongside where a story would already call
+ * `setMockClient()`. Ordering is safe: `preview.jsx` calls {@link beginStoryScope} from `beforeEach`,
+ * which runs before decorators and `setup()`, so the clear cannot wipe a registration.
+ *
+ * Prefer this over `vi.mock("@kestra-io/kestra-sdk/…")`, which silently does nothing in a story file.
+ * That was measured, not assumed: a story whose `vi.mock` returned a marker filename rendered the
+ * empty state instead, so the factory never replaced the module and the story had been asserting
+ * nothing against this module's empty-array default. The likely cause is that Storybook's vitest
+ * plugin makes the story a module imported BY a generated test file rather than the test file itself,
+ * so vitest's mock hoisting never covers it — but only the effect is established, and the same is not
+ * known to hold for mocks of local `src/` modules, which resolve differently.
+ *
+ * @param {string} key `METHOD <path from /api/v1 onward>`, e.g. `"GET /flows/search"`. Supports the
+ *   same `:param` and trailing `*` syntax as {@link HANDLERS}.
+ * @param {unknown | ((context: {method: string, path: string, url: string, query: URLSearchParams,
+ *   body?: unknown}) => unknown)} handler payload, or a function of the request context returning
+ *   one. `query` is where paging and filtering live for GETs. See apiMock.d.ts.
+ */
+export function mockApiRoute(key, handler) {
+    overrides.set(key, handler)
+}
+
+/** Resolve `key` against a handler table, exact match first, then most-specific pattern. */
+function lookupHandler(table, key) {
+    if (table.has(key)) return {handler: table.get(key)}
+
+    const requestSegments = key.split("/")
+    const patterns = [...table.keys()]
+        .filter((candidate) => candidate.includes("/:") || candidate.endsWith("*"))
+        .map((candidate) => ({key: candidate, segments: candidate.split("/")}))
+        .sort((a, b) => b.segments.length - a.segments.length)
+
+    const match = patterns.find(({segments}) => matchesPattern(segments, requestSegments))
+    return match ? {handler: table.get(match.key)} : undefined
+}
+
+/**
  * Report an API route no handler covers.
  *
  * The request is still answered (a non-2xx would restart the `while (true)` retry loop in the SDK's
@@ -148,16 +205,37 @@ function reportUnmocked(key, rawUrl) {
 export function beginStoryScope(label) {
     currentStory = label ?? ""
     reported.clear()
+    // Per-story handlers must not leak into the next story, which would make a passing story depend
+    // on the file order of the run.
+    overrides.clear()
 }
 
 /**
  * Resolve an API call to `{status, data}`. This is the single source of truth shared by the fetch
  * wrapper below and by `mockClientFallback()`, which story-local `setMockClient()` catch-alls use.
  */
-export function resolveApiRequest(method, rawUrl, context = {}) {
+export function resolveApiRequest(method, rawUrl, callContext = {}) {
     const path = apiPath(rawUrl) ?? rawUrl
     const upperMethod = method.toUpperCase()
     const key = `${upperMethod} ${path}`
+
+    // Handlers get the request query as well as the body, so a story can answer a GET differently
+    // per request — paging and filtering both live in the query string, not in a body.
+    let query
+    try {
+        query = new URL(rawUrl, window.location.href).searchParams
+    } catch {
+        query = new URLSearchParams()
+    }
+    const context = {...callContext, method: upperMethod, path, url: rawUrl, query}
+
+    // The current story's own handlers win over the shared table, so a story can vary a payload the
+    // table also covers without editing the table for everyone.
+    const override = lookupHandler(overrides, key)
+    if (override) {
+        const {handler} = override
+        return {status: 200, data: typeof handler === "function" ? handler(context) : handler}
+    }
 
     if (key in HANDLERS) {
         const handler = HANDLERS[key]

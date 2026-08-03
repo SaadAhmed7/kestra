@@ -10,6 +10,9 @@ const MINUTE_MS = 60 * 1000;
 // stubs nor vi.mock() of the SDK submodule intercepts it (the browser runner resolves the real module).
 // configureClient() forwards a `fetch` override to that client, which is the seam that does work.
 // Everything other than the average-duration endpoint falls through to the real fetch.
+// A story needing only a canned payload per route should reach for mockApiRoute() from
+// .storybook/apiMock instead; this one keeps its own override because it varies the response shape
+// (an absent field vs. null) to mirror the backend's non_null serialization.
 function stubAverageDuration(avgDurationMs: number | null) {
     const realFetch = globalThis.fetch.bind(globalThis);
     configureClient({

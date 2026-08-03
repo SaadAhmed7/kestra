@@ -1,52 +1,61 @@
-import {vi} from "vitest";
-
-// triggerStore.search(), flowStore.findFlows() and pluginsStore.listTriggers() all call their
-// generated SDK submodule functions directly, which go through the SDK's own internal client
-// rather than the axios instance setMockClient() swaps - so each has to be intercepted at the
-// submodule level. The Template below still uses setMockClient() as a catch-all for anything
-// exercised by user interaction (unlock/restart/backfill actions), since this story has no
-// play() function driving those paths.
-const mockState = vi.hoisted(() => ({triggers: []}))
-vi.mock("@kestra-io/kestra-sdk/triggers", () => ({
-    searchTriggers: async () => ({results: mockState.triggers, total: mockState.triggers.length}),
-}))
-vi.mock("@kestra-io/kestra-sdk/flows", () => ({
-    searchFlows: async () => ({results: [], total: 0}),
-}))
-vi.mock("@kestra-io/kestra-sdk/plugins", () => ({
-    listTriggerPlugins: async () => ({results: [], total: 0}),
-}))
-
 import Triggers from "../../../../src/components/admin/triggers/Triggers.vue";
 import {vueRouter} from "storybook-vue3-router";
+import {expect, waitFor} from "storybook/test";
 import {setMockClient} from "@kestra-io/kestra-sdk"
-import {mockClientFallback} from "../../../../.storybook/apiMock";
+import {mockApiRoute, mockClientFallback} from "../../../../.storybook/apiMock";
+
+// TriggersGrid (the "add" tab) and TriggersManage (the "manage" tab) both reach their data through
+// generated SDK functions - pluginsStore.listTriggers() -> PluginsAPI.listTriggerPlugins() and
+// utils/triggers.ts searchTriggers() -> TriggersAPI.searchTriggers(). Those use the SDK's own fetch
+// client, so neither the axios instance setMockClient() swaps nor vi.mock() of the SDK submodule
+// reaches them; mockApiRoute() registers the payload at the fetch layer, which does work.
+
+const ROUTES = [
+    {
+        path: "/",
+        name: "home",
+        component: {template: "<div>home</div>"}
+    },
+    {
+        path: "/:tab?",
+        name: "admin/triggers",
+        component: Triggers
+    },
+    {
+        path: "/flows/edit/:namespace/:id",
+        name: "flows/update",
+        component: {template: "<div>update flow</div>"}
+    },
+    // Each manage-tab row links its namespace through KsEntityLink, which resolves this route inside
+    // a computed. Without it vue-router throws "No match for namespaces/update" mid-render and the
+    // table body silently comes up empty — the rows are in ElTable's data but never reach the DOM.
+    {
+        path: "/namespaces/:id",
+        name: "namespaces/update",
+        component: {template: "<div>namespace</div>"}
+    },
+]
 
 const meta = {
     title: "Components/Admin/Triggers",
     component: Triggers,
-    decorators: [
-        vueRouter([
-            {
-                path: "/",
-                name: "home",
-                component: {template: "<div>home</div>"}
-            },
-            {
-                path: "/:tab?",
-                name: "admin/triggers",
-                component: Triggers
-            },
-            {
-                path: "/flows/edit/:namespace/:id",
-                name: "flows/update",
-                component: {template: "<div>update flow</div>"}
-            },
-        ])
-    ],
 }
 
 export default meta;
+
+/** Catalogue entries for the "add" tab, shaped like listTriggerPlugins' `results`. */
+const triggerPlugins = [
+    {
+        "type": "io.kestra.plugin.core.trigger.Schedule",
+        "name": "Schedule",
+        "description": "Trigger a flow on a `cron` schedule.",
+    },
+    {
+        "type": "io.kestra.plugin.core.trigger.Webhook",
+        "name": "Webhook",
+        "description": "Trigger a flow from an HTTP request.",
+    },
+]
 
 const triggersData = [
     {
@@ -119,9 +128,23 @@ const triggersData = [
     }
 ]
 
-const Template = (args) => ({
+/**
+ * Renders the page with `tab` active.
+ *
+ * The tab is pinned through `triggersDefaultTab` rather than the router alone: `vueRouter`'s
+ * `initialRoute` lands asynchronously, so Triggers.vue's `{immediate: true}` watch on
+ * `route.params.tab` fires first, sees no tab, and replaces the route with its default — which
+ * dragged a `/manage` story back to `/add`. Triggers.vue reads that key inside `<script setup>`
+ * (i.e. per instance), so setting it here, before `<Triggers/>` is created, is picked up. It is
+ * always written, never only for "manage", because localStorage outlives a story in the shared
+ * browser page and would otherwise leak into whichever story runs next.
+ */
+const Template = (tab) => () => ({
     setup() {
-        mockState.triggers = args.triggers
+        localStorage.setItem("triggersDefaultTab", tab)
+
+        mockApiRoute("GET /plugins/triggers", {results: triggerPlugins, total: triggerPlugins.length})
+        mockApiRoute("GET /triggers/search", {results: triggersData, total: triggersData.length})
 
         const store = {}
         store.get = async function (uri) {
@@ -156,9 +179,39 @@ const Template = (args) => ({
     }
 });
 
+/** The "add" tab (the component's default), showing the trigger catalogue. */
 export const Default = {
-    render: Template,
-    args: {
-        triggers: triggersData,
+    render: Template("add"),
+    decorators: [vueRouter(ROUTES, {initialRoute: "/add"})],
+    play: async ({canvasElement}) => {
+        await waitFor(
+            () => {
+                const text = canvasElement.textContent ?? "";
+                expect(text).toContain("Schedule");
+                expect(text).toContain("Webhook");
+            },
+            {timeout: 5000},
+        );
+    },
+}
+
+/**
+ * The "manage" tab, which is what `triggersData` was always written for — disabled, locked and
+ * backfill-paused rows. Until this story existed the fixture never reached a component: the story
+ * only ever rendered the default "add" tab, so TriggersManage never mounted.
+ */
+export const Manage = {
+    render: Template("manage"),
+    decorators: [vueRouter(ROUTES, {initialRoute: "/manage"})],
+    play: async ({canvasElement}) => {
+        await waitFor(
+            () => {
+                const text = canvasElement.textContent ?? "";
+                for (const {state} of triggersData) {
+                    expect(text).toContain(state.flowId);
+                }
+            },
+            {timeout: 8000},
+        );
     },
 }
