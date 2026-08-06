@@ -1226,7 +1226,7 @@
     },
     "apps": "アプリケーション",
     "promote": {
-      "label": "デプロイ"
+      "label": "プロモート"
     },
     "demos": {
       "enterprise_edition": "エンタープライズエディション",
