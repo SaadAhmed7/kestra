@@ -80,7 +80,7 @@
                 coreStore.message = {
                     variant: "warning",
                     title: t("readonly property"),
-                    message: t("dashboards.edition.id readonly"),
+                    content: t("dashboards.edition.id readonly"),
                 }
             }
 

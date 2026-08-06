@@ -336,6 +336,8 @@
     import _merge from "lodash/merge"
     import {ref, computed, watch, useTemplateRef} from "vue"
     import {useI18n} from "vue-i18n"
+    import {asProblem} from "@kestra-io/kestra-sdk"
+    import {problemFieldMessage, problemTitle} from "../../../utils/problem"
     import {useRoute, useRouter} from "vue-router"
     import {KsMessage, KsDrawer, KsMarkdown, KsTag, KsDropdown, KsDropdownMenu, KsDropdownItem} from "@kestra-io/design-system"
     import {routeQueryToQueryFilters} from "../../../utils/queryFilters"
@@ -375,7 +377,7 @@
     const route = useRoute()
     const router = useRouter()
     const toast = useToast()
-    const {t} = useI18n({useScope: "global"})
+    const {t, te} = useI18n({useScope: "global"})
 
     const authStore = useAuthStore()
     const flowStore = useFlowStore()
@@ -839,10 +841,12 @@
                     toast.success(t(success, {count: d?.count}))
                     toggleAllUnselected()
                     triggerLoadDataAfterBulkEditAction()
-                }).catch((e: any) => {
-                    toast.error(e?.invalids?.map((exec: any) => {
-                        return {message: t(exec?.message, {triggers: exec?.invalidValue})}
-                    }), t(e?.message))
+                }).catch((e: unknown) => {
+                    const problem = asProblem(e)
+                    toast.error(
+                        (problem?.errors ?? []).map((item) => ({message: problemFieldMessage(item, t, te)})),
+                        problemTitle(problem, t, te),
+                    )
                 })
         }
     }

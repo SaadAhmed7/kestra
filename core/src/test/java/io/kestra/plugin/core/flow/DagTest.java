@@ -54,7 +54,7 @@ public class DagTest {
         assertThat(validate.isPresent()).isTrue();
         assertThat(validate.get().getConstraintViolations().size()).isEqualTo(1);
 
-        assertThat(validate.get().getMessage()).contains("dag: Cyclic dependency detected: task1, task2");
+        assertThat(validate.get().getMessage()).contains("tasks[dag]: Cyclic dependency detected: task1, task2");
     }
 
     @Test
@@ -65,7 +65,7 @@ public class DagTest {
         assertThat(validate.isPresent()).isTrue();
         assertThat(validate.get().getConstraintViolations().size()).isEqualTo(1);
 
-        assertThat(validate.get().getMessage()).contains("dag: Not existing task id in dependency: taskX");
+        assertThat(validate.get().getMessage()).contains("tasks[dag]: Not existing task id in dependency: taskX");
     }
 
     @Test

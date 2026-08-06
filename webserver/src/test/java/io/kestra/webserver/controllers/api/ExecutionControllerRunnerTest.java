@@ -68,7 +68,8 @@ import io.kestra.plugin.core.trigger.Webhook;
 import io.kestra.plugin.core.trigger.WebhookResponse;
 import io.kestra.webserver.controllers.api.ExecutionController.StateRequest;
 import io.kestra.webserver.models.api.ApiAsyncOperationResponse;
-import io.kestra.webserver.responses.BulkErrorResponse;
+import io.kestra.webserver.errors.ProblemDetail;
+import io.kestra.webserver.errors.ProblemError;
 import io.kestra.webserver.responses.BulkResponse;
 import io.kestra.webserver.responses.PagedResults;
 import io.kestra.webserver.tenants.TenantValidationFilter;
@@ -78,6 +79,8 @@ import io.micronaut.core.type.Argument;
 import io.micronaut.data.model.Pageable;
 import io.micronaut.http.*;
 import io.micronaut.http.client.annotation.Client;
+import io.kestra.core.junit.assertions.Problems;
+import io.kestra.webserver.errors.ProblemTypes;
 import io.micronaut.http.client.exceptions.HttpClientResponseException;
 import io.micronaut.http.client.multipart.MultipartBody;
 import io.micronaut.http.sse.Event;
@@ -1432,7 +1435,7 @@ class ExecutionControllerRunnerTest {
             )
         );
         assertThat(exception.getStatus().getCode()).isEqualTo(422);
-        assertThat(exception.getMessage()).isEqualTo("Invalid entity: Missing required input:asked");
+        assertThat(Problems.detail(exception)).isEqualTo("Missing required input:asked");
     }
 
     @Test
@@ -1627,7 +1630,7 @@ class ExecutionControllerRunnerTest {
         );
 
         assertThat(e.getStatus().getCode()).isEqualTo(HttpStatus.CONFLICT.getCode());
-        assertThat(e.getMessage()).contains("Conflict: Cannot change execution state: execution must be terminated and not killed.");
+        assertThat(Problems.detail(e)).isEqualTo("Cannot change execution state: execution must be terminated and not killed.");
 
         e = assertThrows(
             HttpClientResponseException.class,
@@ -2263,10 +2266,11 @@ class ExecutionControllerRunnerTest {
         } catch (HttpClientResponseException e) {
             long afterException = System.currentTimeMillis();
             String errorMessage = "Duration before executions -> %d <-> duration after the exception -> %d <-> Error while pausing execution, err: %s, response: %s";
+            Optional<List<ProblemError>> errors = e.getResponse().getBody(ProblemDetail.class).map(ProblemDetail::errors);
             String formatedError = String.format(
-                errorMessage, afterExec - start, afterException - start, e.getMessage(), e.getResponse().getBody(BulkErrorResponse.class).map(BulkErrorResponse::getInvalids).orElse("errors")
+                errorMessage, afterExec - start, afterException - start, e.getMessage(), errors.orElse(List.of())
             );
-            log.error("Error while pausing execution, err: {}, response: {}", e.getMessage(), e.getResponse().getBody(BulkErrorResponse.class).map(BulkErrorResponse::getInvalids), e);
+            log.error("Error while pausing execution, err: {}, response: {}", e.getMessage(), errors, e);
             fail(formatedError);
         }
 
@@ -2843,7 +2847,7 @@ class ExecutionControllerRunnerTest {
         );
 
         assertThat(e.getStatus().getCode()).isEqualTo(HttpStatus.BAD_REQUEST.getCode());
-        assertThat(e.getMessage()).contains("invalid bulk restart");
+        Problems.assertProblem(e, ProblemTypes.BULK_VALIDATION_FAILED);
 
         Execution successful = client.toBlocking().retrieve(
             POST(
@@ -2867,7 +2871,7 @@ class ExecutionControllerRunnerTest {
         );
 
         assertThat(e.getStatus().getCode()).isEqualTo(HttpStatus.BAD_REQUEST.getCode());
-        assertThat(e.getMessage()).contains("invalid bulk restart");
+        Problems.assertProblem(e, ProblemTypes.BULK_VALIDATION_FAILED);
 
         // EXECUTION NOT FOUND
         e = assertThrows(
@@ -2882,7 +2886,7 @@ class ExecutionControllerRunnerTest {
         );
 
         assertThat(e.getStatus().getCode()).isEqualTo(HttpStatus.BAD_REQUEST.getCode());
-        assertThat(e.getMessage()).contains("invalid bulk restart");
+        Problems.assertProblem(e, ProblemTypes.BULK_VALIDATION_FAILED);
     }
 
     @Test
@@ -3049,7 +3053,7 @@ class ExecutionControllerRunnerTest {
         );
 
         assertThat(e.getStatus().getCode()).isEqualTo(HttpStatus.BAD_REQUEST.getCode());
-        assertThat(e.getMessage()).contains("invalid bulk kill");
+        Problems.assertProblem(e, ProblemTypes.BULK_VALIDATION_FAILED);
 
         // EXECUTION NOT FOUND
         e = assertThrows(
@@ -3064,7 +3068,7 @@ class ExecutionControllerRunnerTest {
         );
 
         assertThat(e.getStatus().getCode()).isEqualTo(HttpStatus.BAD_REQUEST.getCode());
-        assertThat(e.getMessage()).contains("invalid bulk kill");
+        Problems.assertProblem(e, ProblemTypes.BULK_VALIDATION_FAILED);
     }
 
     @Test

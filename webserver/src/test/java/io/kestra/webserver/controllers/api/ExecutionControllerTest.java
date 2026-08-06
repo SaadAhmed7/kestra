@@ -39,6 +39,8 @@ import io.kestra.webserver.responses.PagedResults;
 import io.micronaut.core.type.Argument;
 import io.micronaut.http.*;
 import io.micronaut.http.client.annotation.Client;
+import io.kestra.core.junit.assertions.Problems;
+import io.kestra.webserver.errors.ProblemTypes;
 import io.micronaut.http.client.exceptions.HttpClientResponseException;
 import io.micronaut.http.client.multipart.MultipartBody;
 import io.micronaut.reactor.http.client.ReactorHttpClient;
@@ -122,7 +124,7 @@ class ExecutionControllerTest {
             )
         );
         assertThat(exception.getStatus().getCode()).isEqualTo(HttpStatus.NOT_FOUND.getCode());
-        assertThat(exception.getMessage()).contains("Not Found: Flow not found");
+        assertThat(Problems.detail(exception)).isEqualTo("Flow not found");
 
         exception = assertThrows(
             HttpClientResponseException.class,
@@ -136,7 +138,7 @@ class ExecutionControllerTest {
             )
         );
         assertThat(exception.getStatus().getCode()).isEqualTo(HttpStatus.NOT_FOUND.getCode());
-        assertThat(exception.getMessage()).contains("Not Found: Flow not found");
+        assertThat(Problems.detail(exception)).isEqualTo("Flow not found");
 
         exception = assertThrows(
             HttpClientResponseException.class,
@@ -150,7 +152,7 @@ class ExecutionControllerTest {
             )
         );
         assertThat(exception.getStatus().getCode()).isEqualTo(HttpStatus.NOT_FOUND.getCode());
-        assertThat(exception.getMessage()).contains("Not Found: Flow not found");
+        assertThat(Problems.detail(exception)).isEqualTo("Flow not found");
 
         exception = assertThrows(
             HttpClientResponseException.class,
@@ -160,7 +162,7 @@ class ExecutionControllerTest {
             )
         );
         assertThat(exception.getStatus().getCode()).isEqualTo(HttpStatus.NOT_FOUND.getCode());
-        assertThat(exception.getMessage()).contains("Not Found: Flow not found");
+        assertThat(Problems.detail(exception)).isEqualTo("Flow not found");
 
         exception = assertThrows(
             HttpClientResponseException.class,
@@ -174,7 +176,7 @@ class ExecutionControllerTest {
             )
         );
         assertThat(exception.getStatus().getCode()).isEqualTo(HttpStatus.NOT_FOUND.getCode());
-        assertThat(exception.getMessage()).contains("Not Found: Flow not found");
+        assertThat(Problems.detail(exception)).isEqualTo("Flow not found");
     }
 
     @Test
@@ -371,9 +373,9 @@ class ExecutionControllerTest {
                 ), PagedResults.class
             )
         );
-        assertThat(exception.getStatus().getCode()).isEqualTo(HttpStatus.BAD_REQUEST.getCode());
-        assertThat(exception.getMessage()).isEqualTo(
-            "Invalid query filters: Provided query filters are invalid: Field TRIGGER_ID is not supported for resource EXECUTION. Supported fields are QUERY, SCOPE, FLOW_ID, START_DATE, END_DATE, STATE, LABELS, TRIGGER_EXECUTION_ID, CHILD_FILTER, NAMESPACE, KIND, PARENT_ID, TASK_ID"
+        Problems.assertProblem(exception, ProblemTypes.INVALID_QUERY_FILTERS);
+        assertThat(Problems.detail(exception)).isEqualTo(
+            "Provided query filters are invalid: Field TRIGGER_ID is not supported for resource EXECUTION. Supported fields are QUERY, SCOPE, FLOW_ID, START_DATE, END_DATE, STATE, LABELS, TRIGGER_EXECUTION_ID, CHILD_FILTER, NAMESPACE, KIND, PARENT_ID, TASK_ID"
         );
 
         exception = assertThrows(
@@ -384,7 +386,7 @@ class ExecutionControllerTest {
             )
         );
         assertThat(exception.getStatus().getCode()).isEqualTo(422);
-        assertThat(exception.getMessage()).isEqualTo("Illegal argument: Start date must be before End Date");
+        assertThat(Problems.detail(exception)).isEqualTo("Start date must be before End Date");
     }
 
     @Test

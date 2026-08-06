@@ -30,6 +30,8 @@ import io.micronaut.core.type.Argument;
 import io.micronaut.http.HttpRequest;
 import io.micronaut.http.MediaType;
 import io.micronaut.http.client.annotation.Client;
+import io.kestra.core.junit.assertions.Problems;
+import io.kestra.webserver.errors.ProblemTypes;
 import io.micronaut.http.client.exceptions.HttpClientResponseException;
 import io.micronaut.http.client.multipart.MultipartBody;
 import io.micronaut.reactor.http.client.ReactorHttpClient;
@@ -529,7 +531,7 @@ class NamespaceFileControllerTest {
 
     private void assertForbiddenErrorThrown(Executable executable) {
         HttpClientResponseException httpClientResponseException = Assertions.assertThrows(HttpClientResponseException.class, executable);
-        assertThat(httpClientResponseException.getMessage()).startsWith("Illegal argument: Forbidden path: ");
+        assertThat(Problems.detail(httpClientResponseException)).startsWith("Forbidden path: ");
     }
 
     private URI toNamespacedStorageUri(String namespace, @Nullable URI relativePath) {
